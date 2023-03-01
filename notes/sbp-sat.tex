@@ -1,0 +1,1410 @@
+\documentclass{article}
+    \usepackage{amsmath,amssymb,amsfonts,amsthm}
+    \usepackage[margin=1.2in]{geometry}
+    \usepackage{setspace}
+    \usepackage{xcolor}
+    \usepackage[left, mathlines]{lineno}
+    \usepackage{hyperref}
+    \usepackage{color}
+
+
+    \newcommand{\dx}{\text{ d}x}
+    \newcommand{\dt}{\text{ d}t}
+    \newcommand{\half}{\frac{1}{2}}
+    \newcommand{\dhdt}{\frac{\partial h}{\partial t}}
+    \newcommand{\dhdx}{\frac{\partial h}{\partial x}}
+    \newcommand{\dudt}{\frac{\partial u}{\partial t}}
+    \newcommand{\dudx}{\frac{\partial u}{\partial x}}
+
+
+
+    \theoremstyle{definition}
+    \newtheorem{definition}{Definition}[section]
+    \setstretch{1.5}
+    \title{Analysis of the SBP-SAT Stabilization with Finite Volume: Advection Equation}
+    \author{name}
+    \linenumbers
+\begin{document}
+\maketitle
+% \section{Introduction}
+
+\section{SBP-SAT Approximation}
+    Consider the following scalar advection equation in 1D in the domain $x \in [0,1]$. 
+    \begin{equation}\label{adv}
+        \frac{\partial q(x,t)}{\partial t} + c(x)\frac{\partial q(x,t)}{\partial x} = 0 
+    \end{equation}
+
+    Here, $q(x,t)$ be the quantity of the water advected along the domain 
+    and $c(x)$ be the velocity which it advected. 
+    Let the initial condition in that domain be $q(x,0)=f(x)$. 
+    In this case, we let the water goes in from the left following the equation 
+    $q(0,t)=g(t)$ and advected throughout the domain with 
+    speed $c(x)=1$ and let out at $q(1,t)$. 
+    Such a problem called Initial Boundary Value Problem (IBVP).
+    We want to solve the equation numerically with semidiscrete 
+    method which energy stable. 
+    
+
+\subsection{Stability of The Model}
+    Introducing the energy method by define the inner product on $L_2$ as well as the norm.
+    For any smooth function $p$ and $q$, define the inner product as 
+    \begin{align} (p,q) = \int_0^1 p(x)q(x)\ \text{ d}x \end{align}
+    and the $L_2$-norm as 
+    \begin{align} \Vert q(\cdot,t) \Vert ^2 = (q,q) \end{align}
+    Later on, we want to mimic this energy method and redefine it in the semidiscrete
+    method to prove the stability. 
+
+    Before that, we will see how the boundary condition affects stability of our advection 
+    equation. 
+    
+    Now consider the advection equation (\ref{adv}) with initial condition 
+    $q(x,0)=f(x)$ and boundary condition $q(0,t)=g(t)$. 
+
+    Now, multiplied by the solution $q$. We have $(q,q_t + q_x) = 0$ or equivalently
+    \begin{align}
+        (q,q_t) &+ (q,q_x) = 0 \\
+        \int_0^1 q(x,t)\frac{\partial q(x,t)}{\partial t} \text{ d}x &+ 
+        \int_0^1 q(x,t)\frac{\partial q(x,t)}{\partial x} \text{ d}x = 0
+    \end{align}
+    With the same argument, we will have
+    \begin{align}
+        (q_t,q) + (q_x,q) = 
+        \int_0^1 \frac{\partial q(x,t)}{\partial t} q(x,t)\text{ d}x+ 
+        \int_0^1 \frac{\partial q(x,t)}{\partial x} q(x,t) \text{ d}x &= 0
+    \end{align}
+    Adding the two, we will have 
+    \begin{align}    
+        \int_0^1 \left(q(x,t)\frac{\partial q(x,t)}{\partial t} + 
+        \frac{\partial q(x,t)}{\partial t} q(x,t) \right) \text{ d}x 
+        + 2\int_0^1 \frac{\partial q(x,t)}{\partial x} q(x,t) \text{ d}x = 0
+    \end{align}
+    
+
+    Integrated by part on the first integral gives us 
+    \begin{align}
+        \int_0^1 \left(q(x,t)\frac{\partial q(x,t)}{\partial t} + 
+        \frac{\partial q(x,t)}{\partial t} q(x,t) \right) \text{ d}x  
+        = \int_0^1 \frac{\partial q(x,t)^2}{\partial t} \text{ d}x 
+        = \frac{\partial}{\partial t} \int_0^1 q(x,t)^2 \text{ d}x 
+        = \frac{\partial}{\partial t} \Vert q(x,t)\Vert.  
+    \end{align}
+    Meanwhile, we also have 
+    \begin{align}
+        \int_0^1 2\frac{\partial q(x,t)}{\partial x} q(x,t) \text{ d}x 
+        = \int_0^1 2\ q(x,t) \partial q(x,t) = q(x,t)^2\mid_0^1 
+        = q(1,t)^2 - q(0,t)^2
+    \end{align}
+
+    Now we have 
+    \begin{align}
+        \frac{\partial}{\partial t} \int_0^1 q(x,t)^2 \text{ d}x 
+        = - q(1,t)^2 + q(0,t)^2 = - q(1,t)^2 + g(t)^2
+    \end{align}
+
+    Thus, $\frac{\partial}{\partial t} \Vert u(\cdot,t) \Vert 
+    =   - q(1,t)^2 + g(t)^2$. 
+    Since $q(1,t)^2$ always positive, then we could see that 
+    the energy bounded above by $g(t)^2$, so it is stable. 
+
+\subsection{Semidiscrete Model}
+    Introduce integration by part property with the product notation. 
+    Noting that 
+    \begin{align}
+        ((\partial p/\partial x),q) = \int_0^1 \frac{\partial p}{\partial x}q \dx 
+        &= -\int_0^1 \frac{\partial q}{\partial x}p \dx + p(0)q(0) - p(1)q(1) \\
+        &= - (p,(\partial q/\partial x)) + p(1)q(1) - p(0)q(0)
+    \end{align}
+    or equivalently 
+    \begin{align}
+        ((\partial p/\partial x),q) + (p,(\partial q/\partial x) = p(1)q(1) - p(0)q(0)
+    \end{align}
+    \begin{definition}\label{def-sbp-operator}
+        Let $N$ be a natural number and $\mathbf{x} = [x_1,x_2,\dots,x_N]$ be a discretization of 
+        the interval that $p$ and $q$ are defined. Let $\mathbf{p}$ and $\mathbf{q}$ are the 
+        discretization of $p$ and $q$ on $\mathbf{x}$ respectively. A discrete operator ${D}$ said to be 
+        have summation by part properties if there exist discrete inner product 
+        $<\cdot,\cdot>_H$ along with the symmetric matrix $H$ such that 
+        \begin{align}
+            <D\mathbf{p},\mathbf{q}> + <\mathbf{p}, D \mathbf{q}> &= \mathbf{p}(x_N)\mathbf{q}(x_N) 
+                - \mathbf{p}(x_0)\mathbf{q}(x_0)
+            % <D_{xx} u, v> &= - u^\top M^{(a)}v + (\bar{{q}}_N a_n (SV)_n - \bar{{q}}_0 a_0 (SV)_0)
+        \end{align}
+        with %$SV \approx \frac{\partial p}{\partial x}$ and 
+        $H$ be 
+        positive semi definite matrices. % need to defined what p(0) is
+
+        % relation with equation (13)
+    \end{definition}
+
+    In order to approximate the time derivative numerically, we will use derivative operator 
+    in the form $D = H^{-1}Q$ with $D$ being operator that derived from Finite Volume Method. 
+
+    Consider more general equation than (\ref{adv})
+    \begin{equation}\label{adv2}
+        \frac{\partial q}{\partial t} + \frac{\partial f}{\partial x} = 0
+    \end{equation}
+    defined on the interval $[0,1]$ for some operator $f$ with initial and boundary condition 
+    $q(x,0)=k(x)$ and $q(0,t)=g(t)$. 
+    for some operator $f$. 
+    
+    Consider Finite Volume Method on identical grid on the interval $[0,1]$. 
+    Before continuing, we'll discretize the interval into some grids. 
+    Let $N$ be a positive integer and $I_i$ be the $i$-th control volume for all $i=1,2,...,N.$.
+    Define $\Delta x_i = x_{i+\half} - x_{i-\half}$ be the length of the $i$-th interval 
+    and $x_{i-\frac12}$ and $x_{i+\frac12}$ are the left boundary and right boundary
+    of the interval respectively. 
+
+    From (\ref{adv2}),
+    we have 
+    \begin{align}
+        \int_{I_i} \frac{\partial q}{\partial t}(x,t)\text{ d}x 
+            &+  \int_{I_i} \frac{\partial f}{\partial x}(x,t)\text{ d}x = 0\\ 
+        \dfrac{d}{dt}\int_{I_i} q(x,t) \text{ d}x
+            &+ \left( f(x_{i+\frac12},t) - f(x_{i-\frac12},t) \right)= 0
+    \end{align}
+    Now, introducing the following notation.
+    \begin{align}
+        \bar{{q}}_i = \frac{1}{\Delta x_i}\int_{I_i} q(x,t) \dx \\
+        f_{i \pm \frac12} = f(x_{i\pm \frac12},t)
+    \end{align}
+    Using the new notation and rearrange terms, the last equation becomes
+    \begin{equation}\label{sd1}
+        {\Delta x_i}\frac{d\bar{{q}}_i}{dt} + \left( f_{i+\frac12} - f_{i-\frac12}  \right) = 0
+    \end{equation}
+    Now what's left is to approximate the fluxes $f_{i \pm \frac12}$ with numerical flux $F_{i \pm \frac12}$
+    \begin{align}\label{sd2}
+        {\Delta x_i}\frac{d\bar{{q}}_i}{dt} + \left( F_{i+\frac12} - F_{i-\frac12}  \right) = 0
+    \end{align}
+    The local flux by the inflow and outflow by the average flux on the neighbouring cell, %russanov, lax frederich
+    and adding the dissipative energy, we would get 
+    \begin{equation}\label{approx1}
+        F_{i+\frac{1}{2}} = \frac{f(\bar{{q}}_{i+1}) + f(\bar{{q}}_i)}{2} 
+        - \frac{\alpha}2\left(\bar{{q}}_{i+1}  - \bar{{q}}_i\right)
+    \end{equation} 
+    with some constant $\alpha >0$. 
+    Calculating $\left( F_{i-\frac12} - F_{i+\frac12}  \right)$ we get
+    \begin{align}
+        \left( F_{i-\frac12} - F_{i+\frac12}  \right) 
+                &= \left(\frac{f(\bar{{q}}_{i+1}) + f(\bar{{q}}_i)}{2} 
+                - \frac{\alpha}2\left(\bar{{q}}_{i+1}  - \bar{{q}}_i\right) \right) 
+                 - \left( \frac{f(\bar{{q}}_{i}) + f(\bar{{q}}_{i-1})}{2} 
+                 - \frac{\alpha}2\left(\bar{{q}}_{i}  - \bar{{q}}_{i-1}\right) \right) \\
+                &= \frac{f(\bar{{q}}_{i+1})- f(\bar{{q}}_{i-1})}{2} 
+                - \frac{\alpha \left(\bar{{q}}_{i+1} - 2\bar{{q}}_i + \bar{{q}}_{i-1}\right)}2
+    \end{align}
+    Put this approximation into (\ref{sd2}), we got 
+    \begin{align}\label{fluxmid1}
+        \Delta x \frac{d\bar{{q}}_i}{dt} + \frac{f(\bar{{q}}_{i+1}) -f(\bar{{q}}_{i-1}) }{2} 
+        - \frac{\alpha}2 {\left(\bar{{q}}_{i+1} - 2\bar{{q}}_i + \bar{{q}}_{i-1}\right)} = 0
+    \end{align}
+
+    \newpage
+    Meanwhile, in the left and right boundary, 
+    we don't have any cell on it's left and right, respectively. 
+    So we could say that the length of the leftmost (rightmost) cell 
+    is cut in a half. That means, instead of divide by $\Delta x$, 
+    we divide by $\Delta x/2$. That is 
+    \begin{align}
+        \label{approx2}\frac{\Delta x}2 \frac{d\bar{q_1}}{dt} 
+                            + \left( F_{\frac12} -F_{0}  \right) = 0 \\
+        \label{approx3}\frac{\Delta x}2  \frac{d\bar{q_N}}{dt} 
+                            + \left( F_{N} - F_{N-\frac12}  \right) = 0 
+    \end{align}
+    % F_0 = f(q_0)
+    % F_N = f(q_N)
+    The fact that we don't have whole cell on the left and the right force us to 
+    set $F_0 = f(\bar{q}_0)$ and $F_N = f(\bar{q}_N)$
+    and (\ref{approx1}) to (\ref{approx2})  we have
+    \begin{align}
+        \frac{\Delta x}2 \frac{d\bar{q_1}}{dt} + \left( F_{\frac12} -F_{0}  \right) 
+                &= \frac{\Delta x}2 \frac{d\bar{q_1}}{dt} 
+                + \left(\frac{\bar{q}_{1} +\bar{q}_{0}}{2} 
+                - \frac{\alpha (\bar{q}_{1}-\bar{q}_{0}))}{2} \right) - \bar{q}_0 \\
+                &=\frac{\Delta x}2 \frac{d\bar{q_1}}{dt} 
+                + \frac{\bar{q}_{1} -\bar{q}_{0}}{2} 
+                - \frac{\alpha (\bar{q}_{1}-\bar{q}_{0}))}{2}  
+    \end{align}
+    and with the same manner we also have the following. 
+    \begin{align}
+        \frac{\Delta x}2 \frac{d\bar{q_N}}{dt} + \left( F_{N} -F_{N-\frac12}  \right) 
+        &= \frac{\Delta x}2 \frac{d\bar{q_N}}{dt} +\bar{q}_N 
+        - \left(\frac{\bar{q}_{N} +\bar{q}_{N-1}}{2} 
+        - \frac{\alpha (\bar{q}_{N}-\bar{q}_{N-1}))}{2} \right)\\
+        &= \frac{\Delta x}2 \frac{d\bar{q_N}}{dt} 
+        + \frac{\bar{q}_{N} - \bar{q}_{N-1}}{2} 
+        + \frac{\alpha (\bar{q}_{N}-\bar{q}_{N-1}))}{2} 
+    \end{align}
+    Hence, in the boundary we'll have 
+    \begin{align}
+        \label{fluxleft}\frac{\Delta x}2 \frac{d\bar{{q}}_0}{dt} 
+            + \frac{{f(\bar{{q}}_{1}) - f(\bar{{q}}_{0}) }}{2} 
+            -  \frac{\alpha}2 {\left(\bar{{q}}_{0} - \bar{{q}}_1 \right)} &= 0\\
+        \label{fluxright}\frac{\Delta x}2 \frac{d\bar{{q}}_N}{dt} 
+        + \frac{f(\bar{{q}}_{N}) -f(\bar{{q}}_{N-1}) }{2} 
+        + \frac{\alpha}2 {\left(\bar{{q}}_{N} - \bar{{q}}_{N-1} \right)} &=0 
+    \end{align}
+    Putting together equation (\ref{fluxleft}),(\ref{fluxmid1}), and (\ref{fluxright}) respectively, 
+    we'll have the following system of equation. 
+    \begin{align}
+        \frac{\Delta x_0}{2} \frac{d\bar{{q}}_0}{dt} + \frac{f(\bar{{q}}_{1}) - f(\bar{{q}}_{0}) } 2
+            &+  \frac{\alpha}2{\left(\bar{{q}}_{0} - \bar{{q}}_1 \right)}  &= 0 \ & \notag \\
+        \Delta x_i \frac{d\bar{{q}}_i}{dt} + \frac{f(\bar{{q}}_{i+1}) -f(\bar{{q}}_{i-1}) }{2} 
+            &+ \frac{\alpha}2 {-\left(\bar{{q}}_{i+1} + 2\bar{{q}}_i - \bar{{q}}_{i-1}\right)} &= 0, 
+                &\textrm{ for }i=1,2,\dots,N-1 \notag \\
+        \frac{\Delta x_N}2 \frac{d\bar{{q}}_N}{dt} 
+            + \frac{f(\bar{{q}}_{N}) -f(\bar{{q}}_{N-1}) }2
+            &+ \frac{\alpha}2 {\left(\bar{{q}}_{N} - \bar{{q}}_{N-1} \right)} &=0 \ \label{system1}&
+    \end{align}
+
+    % We could see easily see that both $A$ and $H^{-1}A$ are {symmetric}. Now, let  $D = H^{-1}Q$.   %$D = H^{-1}Q$. 
+    % % With some abuse of notation, the partial derivative system (\ref{system1}) could be rewrite as 
+    % \begin{align}
+    %     H \frac{d\mathbf{q}}{dt} + Q \mathbf{f}(\mathbf{q}) + \alpha A(\mathbf{q}) = 0
+    % \end{align}
+    % or equivalently,
+    % \begin{align}\label{system2}
+    %     \frac{d\mathbf{q}}{dt} + D \mathbf{f}(\mathbf{q}) + \alpha H^{-1}A\mathbf{q} = 0
+    % \end{align}
+
+
+    % with $\mathbf{q} = (q_0, q_1, \dots, q_N)^\top $, 
+    % and let $Q$ as follows: 
+    % \begin{equation}
+    %     Q = \begin{pmatrix}
+    %             - \frac12         & \frac12            & 0              & 0               & \cdots & 0        & 0         & 0 \\
+    %             -\frac{1}{2} & 0             & \frac{1}{2}    & 0               & \cdots & 0        & 0         & 0 \\
+    %             0            & - \frac{1}{2} & 0              & \frac{1}{2}     & \cdots & 0        & 0         & 0 \\
+    %             \vdots       & \vdots        & \vdots         & \vdots          & \ddots & \vdots   & \vdots    & \vdots \\
+    %             0            & 0             & 0              & 0               & \cdots & -\frac{1}{2} & 0      & \frac{1}{2} \\
+    %             0            & 0             & 0              & 0               & \cdots & 0        & -\frac12      & \frac12
+    %     \end{pmatrix}
+    % \end{equation}
+    % and matrix $H =  \text{diag} (\frac{1}{2}\Delta x_0,\Delta x_1,\Delta x_2,\cdots,\Delta x_{N-1},\frac{1}{2}\Delta x_N)$
+    % and
+    % \begin{equation}
+    %     A = \begin{pmatrix}
+    %         {1}           &{-1}            & 0              & 0               & \cdots & 0        & 0         & 0 \\
+    %         -1           & 2             & -1    & 0               & \cdots & 0        & 0         & 0 \\
+    %         0            & -1            & 2              & -1      & \cdots & 0        & 0         & 0 \\
+    %         \vdots       & \vdots        & \vdots         & \vdots          & \ddots & \vdots   & \vdots    & \vdots \\
+    %         0            & 0             & 0              & 0               & \cdots & -1  & 2      & -1 \\
+    %         0            & 0             & 0              & 0               & \cdots & 0        & -1      & 1 
+    %     \end{pmatrix}
+    % \end{equation}
+
+
+    % We could see easily see that both $A$ and $H^{-1}A$ are {symmetric}. Now, let  $D = H^{-1}Q$.   %$D = H^{-1}Q$. 
+    % In the next section, we will prove that our operator $D$ satisfy SBP property from Definition \ref{def-sbp-operator}. 
+    % Now, we're closing this section with implementing the boundary condition with penalty parameter $\tau$ that goes as follows. 
+    % \begin{equation}\label{semidiscrete}
+    %     \frac{d\bar{\mathbf{q}}}{dt} + D\mathbf{f}(\bar{\mathbf{q}}) 
+    %         + \alpha H^{-1}A\bar{\mathbf{q}} + \tau H^{-1} \mathbf{e}_0(\bar{{q}}_0  - g(t)) = 0
+    % \end{equation}
+    % The last terms is used since the boundary condition imposed at the left boundary. that's why we multiply the condition $(\bar{{q}}_0  - g(t))$
+    % with  $H^{-1} \mathbf{e}_0$. 
+    
+    Introducing some notation $\mathbf{Q}, \mathbf{A},$ and $\mathbf{H}$ as follows:
+    \begin{align}
+        \mathbf{Q} = \begin{pmatrix}
+                - \frac12         & \frac12            & 0              & 0               & \cdots & 0        & 0         & 0 \\
+                -\frac{1}{2} & 0             & \frac{1}{2}    & 0               & \cdots & 0        & 0         & 0 \\
+                0            & - \frac{1}{2} & 0              & \frac{1}{2}     & \cdots & 0        & 0         & 0 \\
+                \vdots       & \vdots        & \vdots         & \vdots          & \ddots & \vdots   & \vdots    & \vdots \\
+                0            & 0             & 0              & 0               & \cdots & -\frac{1}{2} & 0      & \frac{1}{2} \\
+                0            & 0             & 0              & 0               & \cdots & 0        & -\frac12      & \frac12
+        \end{pmatrix} \\[6pt]
+        \mathbf{A} = \begin{pmatrix}
+            {1}           &{-1}            & 0              & 0               & \cdots & 0        & 0         & 0 \\
+            -1           & 2             & -1    & 0               & \cdots & 0        & 0         & 0 \\
+            0            & -1            & 2              & -1      & \cdots & 0        & 0         & 0 \\
+            \vdots       & \vdots        & \vdots         & \vdots          & \ddots & \vdots   & \vdots    & \vdots \\
+            0            & 0             & 0              & 0               & \cdots & -1  & 2      & -1 \\
+            0            & 0             & 0              & 0               & \cdots & 0        & -1      & 1 
+        \end{pmatrix}
+    \end{align}
+    and $\mathbf{H} =  \text{diag} (\frac{1}{2}\Delta x_0,\Delta x_1,\Delta x_2,\cdots,\Delta x_{N-1},\frac{1}{2}\Delta x_N)$. 
+    Also notating the vector $\mathbf{q} = (q_0, q_1, \dots, q_N)^\top $.
+    We could write our equation as 
+    \begin{align}
+        \mathbf{H}\frac{d\bar{\mathbf{q}}}{dt} + \mathbf{Q}\mathbf{f}(\bar{\mathbf{q}}) 
+            + \alpha \mathbf{A}\bar{\mathbf{q}} &= 0
+    \end{align}
+    or if we write $\mathbf{D}=\mathbf{H}^{-1}\mathbf{Q}$
+    \begin{align}
+        \frac{d\bar{\mathbf{q}}}{dt} + \mathbf{D}\mathbf{f}(\bar{\mathbf{q}}) 
+            + \alpha \mathbf{H}^{-1}\mathbf{A}\bar{\mathbf{q}} &= 0
+    \end{align}
+    
+
+    We could see easily see that both $\mathbf{A}$ and $\mathbf{H}^{-1}\mathbf{A}$ are {symmetric}. 
+    Let the differential operator in the discrete level estimated by our operator $\mathbf{D}$ .
+    \begin{align}
+        \label{SBP-operator-FV}
+        \frac{d\mathbf{q}}{dx}  \approx \mathbf{D}_x \mathbf{q}
+    \end{align}
+     
+    In the next section, we will prove that our operator $\mathbf{D}$ satisfy SBP property from Definition \ref{def-sbp-operator}. 
+    Now, we're closing this section with implementing the boundary condition with penalty parameter $\tau$ that goes as follows. 
+    \begin{equation}\label{semidiscrete}
+        \frac{d\bar{\mathbf{q}}}{dt} + \mathbf{D}\mathbf{f}(\bar{\mathbf{q}}) 
+            + \alpha \mathbf{H}^{-1}\mathbf{A}\bar{\mathbf{q}} + \tau \mathbf{H}^{-1} \mathbf{e}_0(\bar{{q}}_0  - g(t)) = 0
+    \end{equation}
+    The last terms is used since the boundary condition imposed at the left boundary. that's why we multiply the condition $(\bar{{q}}_0  - g(t))$
+    with  $H^{-1} \mathbf{e}_0$. 
+    \subsection{Stability}
+    To ensure the stability, we will check it with energy methods and adjust 
+    the penalty parameter $\tau$. 
+    Now, we well introduce a discrete inner product that related with the operator from
+    previous subsection. 
+    \begin{definition}
+        The inner product $\left<\cdot,\cdot\right>_H$ defined by
+        \[
+            \left\langle \mathbf{p},\mathbf{q}\right\rangle_H = \mathbf{q}^\top H\mathbf{p}
+        \]
+        with $H=\text{diag}(\frac12,1,1,\dots,1,\frac12)$. The norm based
+        in the inner product defined by 
+        \[
+            \left\| \mathbf{q} \right\|^2 = \left\langle \mathbf{q},\mathbf{q}\right\rangle_H. 
+        \]
+    \end{definition}
+    We can easily prove that this is actually an inner product. Moreover, with this 
+    inner product, our operator $D$ becomes an SBP operator since 
+    \begin{align}
+        \left\langle \mathbf{D}\mathbf{p},\mathbf{q}\right\rangle 
+        + \left\langle \mathbf{p},\mathbf{D}\mathbf{q}\right\rangle 
+        &= \mathbf{q}^\top \mathbf{H}(\mathbf{D}\mathbf{p}) + (\mathbf{D}\mathbf{q})^\top \mathbf{H}\mathbf{p} \\
+        &= \mathbf{q}^\top \mathbf{H}(\mathbf{H}^{-1}\mathbf{Q})\mathbf{p} + \mathbf{q}^\top (\mathbf{H}^{-1}\mathbf{Q})^\top \mathbf{H}\mathbf{p}\\
+        &= \mathbf{q}^\top \mathbf{Q}\mathbf{p} + \mathbf{q}^\top \mathbf{Q}^\top \mathbf{p} \\
+        &= \mathbf{q}^\top (\mathbf{Q}+\mathbf{Q}^\top )\mathbf{p} \\
+        &= \mathbf{q}^\top (\mathbf{e}_N\mathbf{e}_N^\top  - \mathbf{e}_0\mathbf{e}_0^\top )\mathbf{p}\\
+        % &= \mathbf{q}_(N)\mathbf{p}(N) + \mathbf{q}(0)\mathbf{p}(0)
+        &= \mathbf{q}_N \mathbf{p}_N  - \mathbf{q}_0 \mathbf{p}_0  
+    \end{align}
+    Hence, by Definition (\ref{def-sbp-operator}), $D$ is an SBP operator. 
+    
+    
+    Now, moving to our expression (\ref{semidiscrete}), we will make sure that 
+    our numerical solution is stable. With abuse of notation, multiply expression (\ref{semidiscrete}) 
+    with $\bar{\mathbf{q}}$ from the left, we get 
+    \begin{align}
+        \left\langle \bar{\mathbf{q}}, \frac{d\bar{\mathbf{q}}}{dt} 
+                + \mathbf{D}{\bar{\mathbf{q}}} + \alpha \mathbf{H}^{-1}A{\bar{\mathbf{q}}} 
+                + \tau \mathbf{H}^{-1} \mathbf{e}_0(A{\bar{\mathbf{q}}}  - g(t))\right\rangle_\mathbf{H} &= 0 \\
+        \left\langle \bar{\mathbf{q}}, \frac{d\bar{\mathbf{q}}}{dt} \right\rangle_\mathbf{H} 
+                + \left\langle \bar{\mathbf{q}},  \mathbf{D}{\bar{\mathbf{q}}} \right\rangle_\mathbf{H} 
+                +\left\langle \bar{\mathbf{q}}, \alpha \mathbf{H}^{-1}\mathbf{A}{\bar{\mathbf{q}}} \right\rangle_\mathbf{H}
+                +\left\langle \bar{\mathbf{q}}, \tau \mathbf{H}^{-1} \mathbf{e}_0(\bar{{q}}_0  - g(t))\right\rangle_\mathbf{H} &=0 \\
+        \frac12 \frac{d}{dt}\left\langle \bar{\mathbf{q}}, \bar{\mathbf{q}} \right\rangle_\mathbf{H} 
+                + \bar{\mathbf{q}}^\top \mathbf{D}^\top \mathbf{H}\bar{\mathbf{q}}
+                + \alpha(\mathbf{H}^{-1}\mathbf{A}\bar{\mathbf{q}})^\top \mathbf{H}\bar{\mathbf{q}}
+                +\tau (\mathbf{H}^{-1} \mathbf{e}_0(\bar{{q}}_0  - g(t)))^\top \mathbf{H}\bar{\mathbf{q}} &=0 \\
+        \frac12\frac{d}{dt} \| \bar{\mathbf{q}}  \|^2 
+                + \bar{\mathbf{q}}^\top \mathbf{Q}^\top \bar{\mathbf{q}} 
+                + \alpha \bar{\mathbf{q}}^\top \mathbf{A}^\top \bar{\mathbf{q}} + \tau \bar{{q}}_0(\bar{{q}}_0 - g(t)) &=0 
+    \end{align}
+    The third row to fourth row use the following identity, $\mathbf{D}=\mathbf{H}^{-1}\mathbf{Q}$. 
+    If we multiply the equation from the right, with the same way we will get
+    \[
+        \frac12 \frac{d}{dt} \| \bar{\mathbf{q}}  \|^2 
+            + \bar{\mathbf{q}}^\top \mathbf{Q}\bar{\mathbf{q}} 
+            + \alpha \bar{\mathbf{q}}^\top \mathbf{A}\bar{\mathbf{q}} + \tau \bar{{q}}_0(\bar{{q}}_0 - g(t)) =0 
+    \] 
+    Adding both of them and remember that $\mathbf{A} = \mathbf{A}^\top $, we could get
+    \begin{align}
+        \frac{d}{dt} \| \bar{\mathbf{q}}  \|^2 
+                + \bar{\mathbf{q}}^\top (\mathbf{Q}^\top  + \mathbf{Q}) \bar{\mathbf{q}} 
+                + 2\alpha \bar{\mathbf{q}}^\top \mathbf{A}^\top \bar{\mathbf{q}} + 2\tau \bar{{q}}_0(\bar{{q}}_0 - g(t)) &=0 \\
+        \frac{d}{dt} \| \bar{\mathbf{q}}  \|^2 + (\bar{{q}}_N^2 - \bar{{q}}_0^2) + 2\alpha \bar{\mathbf{q}}^\top \mathbf{A}^\top \bar{\mathbf{q}} + 2\tau \bar{{q}}_0(\bar{{q}}_0 - g(t)) &=0 \label{QtplusQ} \\ 
+        \frac{d}{dt} \| \bar{\mathbf{q}}  \|^2 + 2\alpha \bar{\mathbf{q}}^\top \mathbf{A}^\top \bar{\mathbf{q}} 
+            + \bar{{q}}_N^2 + (2\tau -1) \bar{{q}}_0^2 - 2\tau \bar{{q}}_0 g(t) &=0 \\
+        \frac{d}{dt} \| \bar{\mathbf{q}}  \|^2 + 2\alpha \bar{\mathbf{q}}^\top \mathbf{A}^\top \bar{\mathbf{q}} + \bar{{q}}_N^2 
+            + (2\tau -1)\left( \bar{{q}}_0^2 - 2\frac{\tau}{2\tau -1} \bar{{q}}_0 g(t) \right) &=0 \\
+            \frac{d}{dt} \| \bar{\mathbf{q}}  \|^2 + 2\alpha \bar{\mathbf{q}}^\top \mathbf{A}^\top \bar{\mathbf{q}} + \bar{{q}}_N^2 
+            + (2\tau -1)\left( \bar{{q}}_0^2 - 2\bar{{q}}_0 \frac{\tau g(t)}{2\tau -1} + \left(\frac{\tau g(t)}{2\tau -1}\right)^2  
+                - \left(\frac{\tau g(t)}{2\tau -1}\right)^2 \right)&=0 \\
+            \frac{d}{dt} \| \bar{\mathbf{q}}  \|^2 + 2\alpha \bar{\mathbf{q}}^\top \mathbf{A}^\top \bar{\mathbf{q}} + \bar{{q}}_N^2 
+                + (2\tau -1)\left( \bar{{q}}_0^2 -  \left(\frac{\tau g(t)}{2\tau -1}\right) \right)^2 
+                    + \left(- \frac{\tau^2 g(t)^2}{2\tau -1} \right) &=0 \label{gettau}
+        \end{align}
+    The equation (\ref{QtplusQ}) came from the fact that $\mathbf{Q}+\mathbf{Q}^\top $ entries all zeros except the first entry
+    of the diagonal and the last entry of the diagonal. Remember that $A$ is a positive semi-definite matrix. 
+    If we could bound $2\tau -1 >0$, then $-\frac{1}{2\tau -1}<0$ and both last two terms in (\ref{gettau}) are positive. 
+    That means 
+    \begin{align}
+        \frac{d}{dt} \| \bar{\mathbf{q}}  \|^2 \leq - 2\alpha \bar{\mathbf{q}}^\top \mathbf{A}^\top \bar{\mathbf{q}} - \bar{{q}}_N^2  
+            - (2\tau -1)\left( \bar{{q}}_0^2 -  \left(\frac{\tau g(t)}{2\tau -1}\right) \right)^2 
+                + \frac{\tau^2 g(t)^2}{2\tau -1} \leq  \frac{\tau^2 g(t)^2}{2\tau -1}. 
+    \end{align}
+    or if we had $\tau > \frac{1}{2}$ we could safely say that our numerical solution $\bar{\mathbf{q}}$ is stable.
+
+\section{Numerical Experiment}
+    \newpage
+    
+\section{Shallow Water Equation}
+    In this section we want to use SBP-SAT with finite volume 
+    to model the linearized one dimensional shallow water equation 
+    using the same method as the advection equation in the previous section.
+\subsection{Linearization}
+    Let $h$ be depth of the water and $u$ be $x$-directional velocity. 
+    The one dimensional shallow water equation is the following system of equation.  
+    \begin{align}
+        \frac{\partial h}{\partial t} &+ \frac{\partial uh}{\partial x} = 0 \\
+        \frac{\partial (uh)}{\partial t} &+ \frac{\partial (u^2 h + \half gh^2) }{\partial x} = 0
+    \end{align}
+    We'll linearized this equation by letting $h = H + h'$ and $u = U + u'$ 
+    for some constant $H$ and $U$ and small perturbation $h'$ and $u'$. 
+
+    Now, putting it into the system that we have, we got the following,
+    \begin{align}
+        \frac{\partial}{\partial t} (H+h') + \frac{\partial}{\partial x}\left((U+u')(H+h')\right) = 0\\
+        \frac{\partial}{\partial t} \left((U+u')(H+h')\right) 
+                + \frac{\partial}{\partial x} \left((U+u')^2(H+h')
+                        +\half g (H+h')    \right)=0
+    \end{align}
+    Note that $H$ and $U$ are constants, we got
+    \begin{align}
+        \frac{\partial h'}{\partial t} 
+            &+ H \frac{\partial u'}{\partial x} 
+            + U \frac{\partial h'}{\partial x} 
+            + \frac{\partial u'h'}{\partial x} = 0 \\
+        H \frac{\partial u'}{\partial t} 
+            + U \frac{\partial h'}{\partial t} 
+            + \frac{\partial u'h'}{\partial t}
+               &+ 2UH \frac{\partial u'}{\partial x} 
+                +   H \frac{\partial u'^2}{\partial x} 
+                +  U^2\frac{\partial h'}{\partial x} 
+                + 2U  \frac{\partial u'h'}{\partial x} 
+                + \frac{\partial u'^2h}{\partial x} +  \notag                     \\
+               &\  \frac{\partial \left(\half gH^2\right)}{\partial x} 
+                + gH \frac{\partial h'}{\partial x} 
+                + \half g \frac{\partial h'^2}{\partial x} =0
+    \end{align}
+    Ignoring the higher terms $\frac{\partial u'h'}{\partial t},
+    \frac{\partial u'h'}{\partial x}, \frac{\partial u'^2}{\partial x},
+    \frac{\partial u'^2h'}{\partial x}$, we get
+    \begin{align}
+        \label{sys63}
+        &\frac{\partial h'}{\partial t} + H \frac{\partial u'}{\partial x} + U \frac{\partial h'}{\partial x} =0 \\
+        \label{sys64}
+        & H \frac{\partial u'}{\partial t} + U \frac{\partial h'}{\partial t} 
+            + 2UH \frac{\partial u'}{\partial x} 
+            +  U^2\frac{\partial h'}{\partial x}  
+            + gH \frac{\partial h'}{\partial x} =0
+    \end{align}
+    Substituting (\ref{sys63}) into (\ref{sys64}) to eliminate $\frac{\partial h'}{\partial t}$, it becomes
+    \begin{align}
+        H \frac{\partial u'}{\partial t} 
+            + U \left( - H \frac{\partial u'}{\partial x} - U \frac{\partial h'}{\partial x} \right)
+            + 2UH \frac{\partial u'}{\partial x} 
+            +  U^2\frac{\partial h'}{\partial x}  
+            + gH \frac{\partial h'}{\partial x} =0
+    \end{align} 
+    or equivalently
+    \begin{align}
+        H \frac{\partial u'}{\partial t} + UH \frac{\partial u'}{\partial x}  + gH \frac{\partial h'}{\partial x} =0
+    \end{align}
+    Canceling out the constant $H$ from the equation, we got the following Shallow Water equation linearized system. 
+    \begin{align}
+        &\frac{\partial h'}{\partial t} + H \frac{\partial u'}{\partial x} + U \frac{\partial h'}{\partial x} =0 \\
+        &\frac{\partial u'}{\partial t} + U \frac{\partial u'}{\partial x}  + g \frac{\partial h'}{\partial x} =0
+    \end{align}
+    or with change of notation, we could rewrite it to the following systems. 
+    \begin{align}
+        \label{swe1}
+        &\frac{\partial h}{\partial t}  + U \frac{\partial h}{\partial x}+ H \frac{\partial u}{\partial x} =0 \\
+        \label{swe2}
+        &\frac{\partial u}{\partial t} + g \frac{\partial h}{\partial x} + U \frac{\partial u}{\partial x}  =0
+    \end{align}
+\subsection{Analysis}
+    In this section we would like to analyse the stability with energy method
+    to get our boundary condition. 
+
+    Multiply equation (\ref{swe1}) with $gh$, and integrate with respect to $x$ in the inteval $[0,1]$,
+    we got
+    \begin{align}
+        gh\frac{\partial h}{\partial t}+ gUh \frac{\partial h}{\partial x}  + gHh \frac{\partial u}{\partial x} =0\\
+        \int_0^1 gh\frac{\partial h}{\partial t}+ gUh \frac{\partial h}{\partial x}  + gHh \frac{\partial u}{\partial x} + gUh \frac{\partial h}{\partial x} =0\\
+        \int_0^1 gh\frac{\partial h}{\partial t} \dx  +  \int_0^1 gUh  \frac{\partial h}{\partial x} \dx + \int_0^1 gHh  \frac{\partial u}{\partial x} \dx=0\\
+        \frac{d}{dt} \int_0^1 \half gh^2 \dx + gU \left( \half h^2 \big\vert_0^1 \right) 
+            + gH \left( uh\big{\vert}_0^1 - \int_0^1 u \frac{\partial h}{\partial x} \dx \right) =0 \label{sys74}
+    \end{align}
+    Multiply equation ({\ref{swe2}}) with $uH$ and integrate with respect to $x$ in in the interval $[0,1]$, we got
+    \begin{align}
+        uH\frac{\partial u}{\partial t} + uHg \frac{\partial h}{\partial x} + uHU \frac{\partial u}{\partial x}  =0 \\
+        \int_0^1 uH\frac{\partial u}{\partial t} + uHg \frac{\partial h}{\partial x} + uHU \frac{\partial u}{\partial x} \dx  =0 \\
+        \int_0^1 uH\frac{\partial u}{\partial t} \dx + \int_0^1 uHg \frac{\partial h}{\partial x} \dx +  \int_0^1 uHU \frac{\partial u}{\partial x} \dx =0 \\
+        \frac{d}{dt} \int_0^1 \half Hu^2 \dx + gH \int_0^1 u \frac{\partial h }{\partial x} \dx + HU \int_0^1 u\frac{\partial u}{\partial x} \dx \\
+        \frac{d}{dt} \int_0^1 \half Hu^2 \dx + gH \int_0^1 u \frac{\partial h }{\partial x} \dx + HU \left( \half u^2 \big\vert_0^1 \right)  =0 \label{sys79}
+    \end{align}
+    Adding (\ref{sys74}) with (\ref{sys79}) will cancel out terms $gH \int_0^1 u \frac{\partial h }{\partial x} \dx$ and we got
+    \begin{align}\label{sys80}
+        \frac{d}{dt} \int_0^1 \half \left(gh^2 + Hu^2 \right) dx 
+            + gU \left( \half h^2 \big\vert_0^1 \right)
+            + gH \left( uh\big{\vert}_0^1 \right)
+            + HU \left( \half u^2 \big\vert_0^1 \right) = 0
+    \end{align}
+    Here, we could see with energy method, that this system of equation is stable. 
+    
+    Now, we want to know how many boundary condition needed in this 
+    linearized shallow water equation. 
+
+    Let's rewrite equation (\ref{sys80}) by letting $E= \int_0^1 \half \left(gh^2 + Hu^2 \right) dx $ be the energy and 
+    $\mathbf{q} = [h \quad u]^\top $. 
+    The equation becomes
+    \begin{align}
+        \label{energyestimates-h-gH-u}
+        \frac{dE}{dt} 
+        + gU \left( \half h^2 \big\vert_0^1 \right)
+        + gH \left( uh\big{\vert}_0^1 \right)
+        + HU \left( \half u^2 \big\vert_0^1 \right) = 0
+    \end{align}
+    With some algebraic manipulation, we could get the equation equivalent to
+    \begin{align}
+        \frac{d{E}}{dt} + \left.
+        \begin{bmatrix}h & u
+        \end{bmatrix}
+        \begin{bmatrix}
+            \half gU & \half gH \\
+            \half gH & \half Hu 
+        \end{bmatrix}
+        \begin{bmatrix}
+            h \\ u
+        \end{bmatrix}\right\vert_0^1 =0 
+    \end{align}
+    or 
+    \begin{align} \label{qtAq_1}
+        \frac{d{E}}{dt} + \left. \half
+        \mathbf{q}^\top 
+        \begin{bmatrix}
+             gU &  gH \\
+             gH &  HU 
+        \end{bmatrix}\mathbf{q}\right\vert_0^1 = 0
+    \end{align}
+    We want to see the eigenvector of the symmetric matrix
+    $M=\begin{bmatrix}gU&gH\\gH&HU\end{bmatrix}$ to get the boundary condition right. 
+    Calculating $\text{det}(M-\lambda I)=0$ we get 
+    \begin{align}
+        \text{det}(M-\lambda I) = \left\vert 
+            \begin{matrix}
+            gU - \lambda & gH \\ gH & HU-\lambda
+            \end{matrix}
+        \right\vert  = 0 \notag \\
+        (gU-\lambda)(HU - \lambda) - g^2H^2 = 0 \notag \\
+        \lambda^2 - \lambda(gU+HU) + gHU^2 - g^2H^2 \notag \\
+        \lambda_{1,2} = \half{(gU+HU) \pm \half \sqrt{(gU+HU)^2 - 4gH(U^2 - gH)}}
+    \end{align}
+    % Since the matrix $M$ is symmetric, we would have two real eigenvalue,
+    % which means the first eigenvalue $\lambda_1 = \half{(gU+HU) + \half \sqrt{(gU+HU)^2 - 4gH(U^2 - gH)}}$ is positive real. 
+    % Now, since we have the same terms $(gU+HU)$ inside the square root,  
+    % we could see that the second second eigenvalue
+    % $\lambda_2 > 0$ if and only if $ 4gH(U^2 - gH)>0$ or $U^2 > gH$. 
+    % Hence, we have two boundary condition on the left if and only if $U^2 > gH$.
+    % Equivalently, 
+    % $\lambda_2 <0$ if and only if $U^2 < gH$.  Hence, we one boundary condition 
+    % on the left and one boundary condition on the right. 
+
+    We could rewrite the expression inside the root square as we need. 
+    Two that useful would be 
+    $$ (gU+HU)^2 - 4gH(U^2 - gH) = (2gH)^2 + U^2(g-H)^2 $$
+    to make sure that the eigenvalue are reals, and the other one is 
+    $$ (gU+HU)^2 - 4gH(U^2 - gH) = U^2(g+H)^2 + 4gH(gH - U^2)$$
+    to see the sign of one of the eigenvalue. More on the second one, if we let $U>0$ and  
+    $gH - U^2 > 0$, then we have the following: 
+    \begin{align}
+        \lambda_2 = \half U(g+H) - \half \sqrt{U^2(g+H)^2 + 4gH(gH - U^2)} %
+        < \half U(g+H) - \half \sqrt{U^2(g+H)^2} < 0 
+    \end{align}
+    that means $\lambda_2 <0$. 
+    Conversely, if we have $gH - U^2 < 0$, we will have $\lambda_2 >0$. 
+    But this terms doesn't affect the first eigenvalue since both of
+    the terms in the expression are positive so it would be always positive. 
+    \[
+        \half U(g+H) + \half \sqrt{U^2(g+H)^2 + 4gH(gH - U^2)}
+    \]
+
+    Of course, this would be change if we consider the other case, that is when $U<0$. 
+    Our $\lambda_1$ would be positive or negative depends on the sign of $gh-U^2$ since
+    $\half U(g+H)$ is negative. 
+    \[
+        \half U(g+H) + \half \sqrt{U^2(g+H)^2 + 4gH(gH - U^2)}
+    \]
+    If $gh-U^2 > 0$ then the expression is positive, otherwise it's negative. 
+    Meanwhile, our $\lambda_2$ would always negative. 
+
+    Now we have the following tables of sign
+    \begin{table}[h!]
+        \centering            
+        % \begin{tabular}{|c|c||c|c|c|}
+        %     \hline
+        %     $U$ & $gH-U^2$ & $\lambda_1$  & $\lambda_2$ & \textbf{number of boundary condition}\\ \hline % \hhline{|=|=|=|=|}
+        %     + & + & + & - & one on the left, one on the right\\ \hline
+        %     + & - & + & + & two on the left \\ \hline
+        %     - & + & + & - & one on the left, one on the right\\ \hline        
+        %     - & - & - & - & two on the right \\ \hline        
+        % \end{tabular}
+
+        \begin{tabular}{|c|c||c|c|}
+            \hline
+            $U$ & $gH-U^2$ & $\lambda_1$  & $\lambda_2$ \\ \hline % \hhline{|=|=|=|=|}
+            + & + & + & - \\ \hline
+            + & - & + & + \\ \hline
+            - & + & + & - \\ \hline        
+            - & - & - & - \\ \hline        
+        \end{tabular}
+
+        % \caption[c]{Number of boundary based on eigenvalues}
+        \caption[]{Eigenvalues sign}
+        \label{eigen-boundary-1}
+    \end{table}
+
+    
+    Now, lets back to the equation (\ref{qtAq_1}). For simplicity, we will take the
+    factor $gH$ to get 
+
+    \begin{align} \label{qtAq_2}
+        \frac{d{E}}{dt} + \left. \half gH \,
+        \mathbf{q}^\top 
+        \begin{bmatrix}
+             U/H &  1 \\
+             1 &  U/g 
+        \end{bmatrix}\mathbf{q}\right\vert_0^1 = 0
+    \end{align}
+
+    Addressing the factor, using the previous eigen analysis, we could see that this
+    new matrices \begin{equation}\label{a_prime} A^\prime = \begin{bmatrix}
+        U/H &  1 \\
+        1 &  U/g 
+   \end{bmatrix}\end{equation}  
+   has eigenvalues $\frac1{2gH} \left(U(g+H) \pm \sqrt{U^2(g+H)^2 + 4gH(gH - U^2)}\right)$
+   and would still have the same table of sign as Table \ref{eigen-boundary-1}. 
+   
+   Now, we would like to diagonalize matrix $ A^\prime $ from (\ref{a_prime}) to get the boundary treatments. 
+   With the identity that we get from polynomial characteristic of matrix $ A^\prime $, 
+   that is $\lambda_1 + \lambda_2 =\frac Ug + \frac UH$, one could find that the vector 
+   \begin{equation}
+        \begin{pmatrix}\lambda_1 - \frac Ug \\ 1 \end{pmatrix} \text{ and } 
+        \begin{pmatrix}
+            \lambda_2 - \frac Ug \\
+            1
+        \end{pmatrix}
+    \end{equation}
+    are the eigenvectors of $\lambda_1$ and $\lambda_2$ respectively. \
+    Since the matrix $ A^\prime $ are symmetric, this eigenvectors should 
+    be orthogonal to each other. But it also could came from the fact that 
+    \begin{align}
+        \left(\lambda_1 - \frac Ug\right)\left(\lambda_2 - \frac{U}{g}\right) + 1 
+        &= \lambda_1 \lambda_2 - \left(\lambda_1 + \lambda_2\right) \frac{U}{g} + \frac{U^2}{g^2} + 1\\
+        &= \left(\frac{U}{g}\frac{U}{H} -1 \right) - \left(\frac{U}{g} + \frac{U}{H}\right) \frac{U}{g}
+                + \frac{U^2}{g^2} + 1 \\
+        &= \left( \frac{U^2}{gH}  - 1 \right) 
+            - \left( \frac{U^2}{g^2} + \frac{U^2}{gH} \right)+ \frac{U^2}{g^2} + 1 \\
+        &= 0.
+    \end{align}
+    The fact that $\lambda_1 \lambda_2 = \left(\frac{U}{g}\frac{U}{H} -1 \right)$ also 
+    came from the characteristic polynomial of $A^\prime$. 
+
+    Now, since the the eigenvectors are orthogonal, hence we could construct 
+    an orhtonormal matrix that diagonalize our matrix $A^\prime$ by normalizing the eigenvectors.
+    Let $S$ be the matrix we mentioned, we have 
+    \begin{equation}
+        S = \begin{bmatrix}
+            \frac 1c \left( \lambda_1 - \frac{U}{g}\right) & \frac 1d \left( \lambda_2 - \frac{U}{g}\right) \\
+            \frac 1c & \frac{1}{d}
+        \end{bmatrix}
+    \end{equation}
+    with $c = \sqrt[]{ \left( \lambda_1 - \frac{U}{g}\right)^2 + 1}$ and 
+         $d = \sqrt[]{\left( \lambda_2 - \frac{U}{g}\right)^2 + 1}$, that is the length
+    of our eigenvectors. 
+
+    Note that $S$ is orhtonormal, we have $S^{-1} = S^\top $. 
+    Therefore, our equation (\ref{qtAq_2}) becomes  
+    \begin{equation}
+        \frac{d{E}}{dt} + \left. \half gH \,
+        \mathbf{q}^\top S
+        \begin{bmatrix}
+             \lambda_1 &  0 \\
+             0 &  \lambda_2
+        \end{bmatrix}S^\top\mathbf{q}\right\vert_0^1 = 0
+    \end{equation}
+    or equivalently
+    \begin{equation}
+        \frac{d{E}}{dt} + \left. \half gH \,
+        (S^\top\mathbf{q})^\top
+        \begin{bmatrix}
+            \lambda_1 &  0 \\
+            0 &  \lambda_2
+       \end{bmatrix}S^\top\mathbf{q}\right\vert_0^1 = 0
+    \end{equation}
+    Notate $\mathbf{w} = S^\top \mathbf{q}$ and let $\mathbf{w} = [w_1 \ w_2]^\top$, 
+    we have 
+    \begin{align}\label{eq:w-to-q}
+        w_1 = \frac{1}{c}\left(\lambda_1 -\frac{ U}{g}\right) h + \frac{1}{c} u, \quad  w_2 = \frac{1}{d}\left(\lambda_2 -\frac{ U}{g}\right) h + \frac{1}{d} u
+    \end{align}
+     % 
+    \begin{equation}\label{eq:q-to-w}
+        h = \frac{1}{c}\left(\lambda_1 -\frac{ U}{g}\right) w_1 +  \frac{1}{d}\left(\lambda_2 -\frac{ U}{g}\right) w_2, \quad  u = \frac{1}{c} w_1 + \frac{1}{d} w_2
+    \end{equation}
+    so that 
+    \begin{equation}
+        \frac{d{E}}{dt} + \left. \half gH \,
+        \mathbf{w}^\top
+        \begin{bmatrix}
+            \lambda_1 &  0 \\
+            0 &  \lambda_2
+       \end{bmatrix}\mathbf{w}\right\vert_0^1 = 0
+    \end{equation}
+    Introducing
+    \begin{equation}
+        \textbf{BT} = - 
+        \left.\mathbf{w}^\top
+        \begin{bmatrix}
+            \lambda_1 &  0 \\
+            0 &  \lambda_2
+       \end{bmatrix}
+        \mathbf{w}\right\vert_0^1
+    \end{equation}
+    and moving terms to the right hand side we got
+    \begin{equation}
+        \frac{d{E}}{dt} = \half gH \, \textbf{BT}
+    \end{equation}
+    
+    We could only focusing our attention to $\textbf{BT}$.
+    \begin{equation}\label{eq:bt_correct}
+        \textbf{BT} = - 
+        \left.\mathbf{w}^\top
+        \begin{bmatrix}
+            \lambda_1 &  0 \\
+            0 &  \lambda_2
+       \end{bmatrix}
+        \mathbf{w}\right\vert_0^1 
+        =\left.\mathbf{w}^\top
+        \begin{bmatrix}
+            \lambda_1 &  0 \\
+            0 &  \lambda_2
+       \end{bmatrix}
+        \mathbf{w}\right\vert_0 
+        - 
+        \left.\mathbf{w}^\top
+        \begin{bmatrix}
+            \lambda_1 &  0 \\
+            0 &  \lambda_2
+       \end{bmatrix}
+        \mathbf{w}\right\vert_1
+    \end{equation}
+    % \textcolor{red}{
+    %     There is a sign error in \eqref{eq:bt} which is propagated down the analysis.  I think the correct expression is
+    %     \begin{equation}\label{eq:bt_correct}
+    %         \textbf{BT} = - 
+    %         \left.\mathbf{w}^\top
+    %         \begin{bmatrix}
+    %             \lambda_1 &  0 \\
+    %             0 &  \lambda_2
+    %     \end{bmatrix}
+    %         \mathbf{w}\right\vert_0^1 
+    %         =\left.\mathbf{w}^\top
+    %         \begin{bmatrix}
+    %             \lambda_1 &  0 \\
+    %             0 &  \lambda_2
+    %     \end{bmatrix}
+    %         \mathbf{w}\right\vert_0 
+    %         - 
+    %         \left.\mathbf{w}^\top
+    %         \begin{bmatrix}
+    %             \lambda_1 &  0 \\
+    %             0 &  \lambda_2
+    %     \end{bmatrix}
+    %         \mathbf{w}\right\vert_1
+    %     \end{equation}
+    %     Please can swap the boundary terms at $x =0$ and $x = 1$.
+    % }
+    
+    Using $\mathbf{w} = [w_1 \ w_2]^\top$, 
+    we could get 
+    \begin{equation}\label{bt-terms}
+        \textbf{BT} 
+        = \left.\lambda_1 w_1^2 + \lambda_2 w_2^2\right\vert_0
+        - \left.(\lambda_1 w_1^2 + \lambda_2 w_2^2)\right\vert_1. 
+    \end{equation}
+    
+    \subsubsection{First case: $\lambda_1>0$, $\lambda_2<0$}
+        In this case we have $U>0$ and $gh - U^2 >0$. On the right boundary, $x=1$, 
+        we have need to get these expression to be negative, that is
+        \begin{align}
+            -\left(\left.\lambda_1 w_1^2 + \lambda_2 w_2^2\right)\right\vert_1 < 0
+        \end{align}
+        or equivalently
+        \begin{align}
+            \left.\lambda_1 w_1^2 + \lambda_2 w_2^2\right\vert_1 >0
+        \end{align}
+        Let $w_2 = \gamma_N w_1$ so that the expression becomes
+        \begin{align}
+            \left.\lambda_1 w_1^2 + \lambda_2 w_2^2\right\vert_1 
+            &= \left.\lambda_1 w_1^2 + \lambda_2 (\gamma_N w_1)^2\right\vert_1 \\
+            &= \left. w_1^2 \left( \lambda_1  + \lambda_2 \gamma_N^2\right) \right\vert_1
+        \end{align}
+        That means, we need to get $\lambda_1 + \lambda_2  \gamma_N^2>0$ when $x=1$. 
+        Equivalently, we need to choose $\gamma_N^2$ such that 
+        \begin{equation}\label{boundarycondition_gammaN}
+            \gamma_N^2 < -\frac{\lambda_1}{\lambda_2}
+        \end{equation}
+        That would be our right boundary condition. 
+
+        Meanwhile, on the left boundary, $x=0$, we need to have
+        \begin{align}
+            \left.\lambda_1 w_1^2 + \lambda_2 w_2^2\right\vert_0 < 0
+        \end{align}
+        But we know that $\lambda_1$ is positive. Let $w_1 = \gamma_0 w_2$. 
+
+        \begin{align}
+            \left.\lambda_1 w_1^2 + \lambda_2 w_2^2\right\vert_0
+            &= \left.\lambda_1  (\gamma_0 w_2)^2 + \lambda_2 w_2^2\right\vert_0 \\
+            &= \left. w_2^2 \left( \lambda_1\gamma_0^2   + \lambda_2  \right) \right\vert_0
+        \end{align}
+        so we need to have $\left( \lambda_1\gamma_0^2   + \lambda_2  \right) <0 $ when $x=0$. 
+        Hence, our choosing of should fulfill the following. 
+        \begin{equation}\label{boundarycondition_gamma0}
+            \gamma_0^2 < -\frac{\lambda_2}{\lambda_1}
+        \end{equation}
+        
+
+        \subsubsection{Second case: $\lambda_1 >0, \lambda_2 >0$}
+        The second case, when $U>0$ and $gh - U^2 < 0$, that is when both $\lambda_1$ and $\lambda_2$
+        are positive, from (\ref{bt-terms}), we could rest assure on the right side, since 
+        the terms  $\left.(-\lambda_1 w_1^2 - \lambda_2 w_2^2) \right\vert_1$ is always non-positive. 
+        On the other side, $x=1$, is pretty harsh since we need the expression
+        $\left.(\lambda_1 w_1^2 + \lambda_2 w_2^2) \right\vert_0$
+        to be non-positive. That would only possible if we force $w_1 = 0$ and $w_2 =0$, 
+        and that would be two boundary conditions on the right. 
+        % adding the implication for $h$ and $u$. 
+
+        \subsubsection{Third case: $\lambda_1 <0, \lambda_2 >0$}
+        % In this case we have $U<0$ and $gh - U^2 > 0$. 
+        From the boundary terms (\ref{bt-terms}), we need $\mathbf{BT}$ to be non positive.  
+        \begin{equation}
+            \textbf{BT} 
+            = \left.\lambda_1 w_1^2 + \lambda_2 w_2^2\right\vert_0
+            - \left.(\lambda_1 w_1^2 + \lambda_2 w_2^2)\right\vert_1. 
+        \end{equation}
+        On the left boundary $x=0$, we have $\lambda_1 <0$ so we need to control the terms 
+        $\left.\lambda_2 w_2^2\right\vert_0$.
+        Setting $w_2 = \gamma_0 w_1$ we could get
+        \begin{align}
+            \left.\lambda_1 w_1^2 + \lambda_2 w_2^2\right\vert_0 
+                &= \left.\lambda_1 w_1^2 + \lambda_2 ( \gamma_0 w_1)^2\right\vert_0 \\
+                &= w_1^2 (\left.\lambda_1 + \lambda_2  \gamma_0 ^2)\right\vert_0 
+        \end{align}
+        We want this terms to be  non negative so our choice of $\gamma_0^2$ must satisfy 
+        \begin{align}
+            \lambda_1 + \lambda_2  \gamma_0 ^2 \leq 0 \\
+             \gamma_0^2 \leq - \frac{\lambda_1 }{\lambda_2}. \label{gamma_0_secondcase}
+        \end{align}
+        On the right boundary $x=1$, we have $\gamma_2 >0$ so we need to control $\lambda_1 w_1^2$.
+        Setting $w_1 = \gamma_N w_2$, we got 
+        \begin{align}
+            \left.(\lambda_1 w_1^2 + \lambda_2 w_2^2)\right\vert_1 
+            &= \left.(\lambda_1 (\gamma_N w_2)^2 + \lambda_2 w_2^2)\right\vert_1 \\
+            &= \left. w_2^2(\lambda_1 \gamma_N^2 + \lambda_2 )\right\vert_1 
+        \end{align}
+        We want this terms to be non positive, so we need to have 
+        \begin{align}
+            \lambda_1 \gamma_N^2 + \lambda_2 \geq 0\\
+            \gamma_N^2 \leq -\frac{\lambda_2}{\lambda_1} \label{gamma_N_secondcase}
+        \end{align}
+        The sign changed because $\lambda_1 <0$. Now we need to have our choice of $\gamma_N$ 
+        fulfill the condition (\ref{gamma_N_secondcase}).
+        % For the other two cases, both with condition $U<0$, could be analyze with the same
+        % argument. The number of boundary condition will follow suit: two negative eigenvalues 
+        % would need two boundary condition on the left; one positive and one negative eigenvalue
+        % would need one boundary condition on the left and one on the right. Here is why. 
+
+        \subsubsection{Fourth case: $\lambda_1 <0, \lambda_2 <0$}
+        In this case our $\mathbf{BT}$ that need to be non positive,
+        \begin{equation}
+            \textbf{BT} 
+            = \left.\lambda_1 w_1^2 + \lambda_2 w_2^2\right\vert_0
+            - \left.(\lambda_1 w_1^2 + \lambda_2 w_2^2)\right\vert_1. 
+        \end{equation}
+        would give us not so much room to relax. The condition $\lambda_1 <0, \lambda_2 <0$ 
+        will ensure the non-positivity on the left boundary, and forcing us to 
+        have $w_1=0$ and $w_0=0$ on the right boundary. 
+        
+
+
+    
+
+
+\subsection{Discretization}
+    We would like to do discretization of the interval $[0,1]$ as the previous section. 
+    Consider Finite Volume Method on identical grid on the interval $[0,1]$. 
+    Let $N$ be a positive integer and $I_i$ be the $i$-th control volume for all $i=1,2,...,N.$.
+    Define $\Delta x_i = x_{i+\half} - x_{i-\half}$ be the length of the $i$-th interval 
+    and $x_{i-\frac12}$ and $x_{i+\frac12}$ are the left boundary and right boundary
+    of the interval respectively. 
+
+    Let's our differential operator estimated by SBP operator 
+    \begin{equation}
+        \frac{\partial \mathbf{q}}{\partial x} \approx \mathbf{D}_x \mathbf{q}
+    \end{equation}
+    $\mathbf{D}_x = \mathbf{P}^{-1}\mathbf{Q}$.
+    and
+    $\mathbf{Q+Q^\top} = \textrm{diag}[-1,0,0,\dots,0,1]$
+    
+    discretize norm be 
+    \begin{equation}
+        \left< u,v\right>_\mathbf{P} = v^\top \mathbf{P}u.
+    \end{equation}
+
+    Our shallow water equation (\ref{swe1}) and (\ref{swe2}) could be rewrite as follows.
+    \begin{align}
+        P \frac{dh}{dt} + U\mathbf{Q} h + H\mathbf{Q}u = 0\\
+        P \frac{du}{dt} + g\mathbf{Q}h + U\mathbf{Q}u = 0
+    \end{align}
+    For now, we would not adding the dissipative terms. 
+    Consider the first case when $\lambda_1 >0$ and $\lambda_2 <0$ 
+    that we have one boundary condition on the left and one boundary condition on the right. 
+    % w_2 = \gamma_N w_1    ;  x = 1
+    % w_1 = \gamma_0 w_2     : x = 0
+
+    Add the SAT terms, we could write the discretize equation as 
+    \begin{align}
+        \mathbf{P} \frac{dh}{dt} + U\mathbf{Q} h + H\mathbf{Q}u 
+            + \tau_{01} e_0 \left(w_2 - \gamma_0 w_1 \right)
+            + \tau_{N1} e_N \left(w_1 - \gamma_N w_2 \right)
+            = 0\\
+        \mathbf{P} \frac{du}{dt} + g\mathbf{Q}h + U\mathbf{Q}u 
+        + \tau_{02} e_0 \left(w_2 - \gamma_0 w_1 \right)
+        + \tau_{N2} e_N \left(w_1 - \gamma_N w_2 \right)
+        = 0
+    \end{align}
+    Multiply the two equation with $gh^\top$ and $Hu^\top$ respectively we got
+    \begin{align}\label{swe-sat1}
+        gh^\top \mathbf{P} \frac{dh}{dt} + gUh^\top \mathbf{Q} h + gHh^\top \mathbf{Q}u 
+            + \tau_{01} gh_0 \left(w_2 - \gamma_0 w_1 \right)
+            + \tau_{N1} gh_N \left(w_1 - \gamma_N w_2 \right)
+            = 0\\ \label{swe-sat2}
+        Hu^\top \mathbf{P} \frac{du}{dt} + gHu^\top \mathbf{Q}h + UHu^\top \mathbf{Q}u 
+        + \tau_{02} Hu_0 \left(w_2 - \gamma_0 w_1 \right)
+        + \tau_{N2} Hu_N \left(w_1 - \gamma_N w_2 \right)
+        = 0
+    \end{align}
+    Transpose both of the two, we will get 
+    \begin{align} \label{swe-sat3}
+        g\left(\frac{dh}{dt}\right)^\top \mathbf{P}^\top h  
+            + gU h^\top  \mathbf{Q}^\top h + gHu^\top \mathbf{Q}^\top h 
+                + \tau_{01} gh_0 \left(w_2 - \gamma_0 w_1 \right)
+                + \tau_{N1} gh_N \left(w_1 - \gamma_N w_2 \right)
+            = 0\\ \label{swe-sat4}
+        H \left(\frac{du}{dt}\right)^\top \mathbf{P}^\top u  
+            + gHh^\top \mathbf{Q}^\top u + UHu^\top \mathbf{Q}^\top u 
+                + \tau_{02} Hu_0 \left(w_2 - \gamma_0 w_1 \right)
+                + \tau_{N2} Hu_N \left(w_1 - \gamma_N w_2 \right)
+            = 0.
+    \end{align}
+    Adding (\ref{swe-sat1}), (\ref{swe-sat2}), (\ref{swe-sat3}), and (\ref{swe-sat4}) together
+    and using the identity     $\mathbf{Q+Q^\top} = \textrm{diag}[-1,0,0,\dots,0,1]$
+    gives us 
+    \begin{align}
+        \frac{d}{dt}\left(gh^\top \mathbf{P}h + H u^\top \mathbf{P}u \right) 
+            &+ gUh^\top \mathbf{B} h + UHu^\top \mathbf{B} u 
+            + gH \left(h^\top \mathbf{B}u + u^\top \mathbf{B}h \right) \nonumber \\
+            &+ \tau_{01} gh_0 \left(w_2 - \gamma_0 w_1 \right)
+            + \tau_{N1} gh_N \left(w_1 - \gamma_N w_2 \right) \nonumber \\
+            &+ \tau_{02} Hu_0 \left(w_2 - \gamma_0 w_1 \right)
+            + \tau_{N2} Hu_N \left(w_1 - \gamma_N w_2 \right) \nonumber \\
+            &=0 
+    \end{align}
+    We will treat the terms $\left(gh^\top \mathbf{P}h + H u^\top \mathbf{P}u \right)$ 
+    as our energy. Move all the terms except the energy, and evaluate some of the 
+    terms involving $u^\top \mathbf{Q}u$ and $h^\top \mathbf{Q}h$, we got 
+    \begin{align}
+        \frac{d}{dt}\left(gh^\top \mathbf{P}h + H u^\top \mathbf{P}u \right) &=
+        - gUh^\top \mathbf{B} h - UHu^\top \mathbf{B} u 
+        - gH \left(h^\top \mathbf{B}u + u^\top \mathbf{B}h \right)\nonumber \\
+        & \qquad  - \tau_{01} gh_0 \left(w_2 - \gamma_0 w_1 \right)
+        - \tau_{N1} gh_N \left(w_1 - \gamma_N w_2 \right) \nonumber \\
+        & \qquad  - \tau_{02} Hu_0 \left(w_2 - \gamma_0 w_1 \right)
+        - \tau_{N2} Hu_N \left(w_1 - \gamma_N w_2 \right)\\
+        & = -gU (h_N^2 - h_0^2) - UH(u_N^2 - u_0^2) - 2gH(h_Nu_N - h_0u_0) \nonumber \\
+        & \qquad  - \tau_{01} gh_0 \left(w_2 - \gamma_0 w_1 \right)
+        - \tau_{N1} gh_N \left(w_1 - \gamma_N w_2 \right) \nonumber \\
+        & \qquad  - \tau_{02} Hu_0 \left(w_2 - \gamma_0 w_1 \right)
+        - \tau_{N2} Hu_N \left(w_1 - \gamma_N w_2 \right) \label{swe-sat5} 
+    \end{align}
+    We could write the last expression (\ref{swe-sat5}) in the matrix form, 
+    treating left boundary and right boundary separately. Before that, 
+    for convenience, we would our boundary conditoin implemented in 
+    the form of $h$ and $u$, namely, $w_2 - \gamma_0 w_1 = \alpha_0 h_0 + \beta_0 u_0$ on the left boundary; 
+    $w_1 - \gamma_N w_2 = \alpha_N h_N + \beta_N u_N$ on the right boundary. 
+    
+    %%%%%%%%%%%%%%
+    % wrong, need to change this later
+    %
+    % That would lead to
+    % \begin{align}
+    %     \alpha_0 = \frac{1}{c}\left(1 - \gamma_0 \left(\lambda_1 - \frac{U}{g}\right)\right)  \\
+    %     \beta_0 =\frac{1}{d}\left(1 - \gamma_0 \left(\lambda_2 - \frac{U}{g}\right)\right)  \\
+    % \end{align}
+
+    Now, expression (\ref{swe-sat5}) becomes
+    \begin{align}
+        & -gU (h_N^2 - h_0^2) - UH(u_N^2 - u_0^2) - 2gH(h_Nu_N - h_0u_0) \nonumber \\
+        & \qquad  - \tau_{01} gh_0 \left(w_2 - \gamma_0 w_1 \right)
+        - \tau_{N1} gh_N \left(w_1 - \gamma_N w_2 \right) \nonumber \\
+        & \qquad  - \tau_{02} Hu_0 \left(w_2 - \gamma_0 w_1 \right)
+        - \tau_{N2} Hu_N \left(w_1 - \gamma_N w_2 \right) \label{swe-sat6}  \\
+        &= gUh_0^2 + UHu_0^2 + 2gHh_0 u_0 - \tau_{01}gh_0 (\alpha_0 h_0+ \beta_0 u_0) - \tau_{02}Hu_0 (\alpha_0 h_0+ \beta_0 u_0) \label{swe-sat-mat2}\\
+        &\qquad  -gU h_N^2 - UH u_N^2 - 2gHh_N u_N - \tau_{N1}gh_N(\alpha_N h_N+ \beta_N u) - \tau_{N2}Hu_N (\alpha_N h_N+ \beta_N u_N) \label{swe-sat-mat1}
+    \end{align}
+    From (\ref{swe-sat-mat2}) we could express it as 
+    \begin{align}
+        gH
+        \begin{pmatrix}
+            h_0 \\ u_0
+        \end{pmatrix}^\top 
+        \begin{pmatrix}
+        \frac{U}{H} - \frac{2\tau_{01}\alpha_0 }{H} & 1 - \frac{\tau_{01}\beta_0}{H} - \frac{\tau_{02}\alpha_0}{g} \\
+        1 - \frac{\tau_{01}\beta}{H} - \frac{\tau_{02}\alpha_0}{g} & \frac{U}{g} - \frac{2\tau_{02}\beta_0}{g}
+        \end{pmatrix}
+        \begin{pmatrix}
+            h_0 \\ u_0
+        \end{pmatrix}
+    \end{align}
+    and from (\ref{swe-sat-mat1}) we could express it as 
+    \begin{align}
+        -gH
+        \begin{pmatrix}
+            h_N \\ u_N
+        \end{pmatrix}^\top 
+        \begin{pmatrix}
+        \frac{U}{H} +\frac{2\tau_{N1}\alpha_N }{H} & 1 + \frac{\tau_{N1}\beta_N}{H} + \frac{\tau_{N2}\alpha_N}{g} \\
+        1 + \frac{\tau_{N1}\beta_N}{H} + \frac{\tau_{N2}\alpha_N}{g} & \frac{U}{g} + \frac{2\tau_{N2}\beta_N}{g}
+        \end{pmatrix}
+        \begin{pmatrix}
+            h_N \\ u_N
+        \end{pmatrix}
+    \end{align}
+
+    The whole equation now becomes
+    \begin{align}
+        \frac{d\mathbf{E}}{dt}  &=     gH
+        \begin{pmatrix}
+            h_0 \\ u_0
+        \end{pmatrix}^\top 
+        \begin{pmatrix}
+        \frac{U}{H} - \frac{2\alpha_0 \tau_{01}}{H} & 1 - \frac{\tau_{01}\beta_0}{H} - \frac{\alpha_0}{g} \\
+        1 - \frac{\tau_{01}\beta}{H} - \frac{\alpha_0}{g} & \frac{U}{g} - \frac{2\beta_0\tau_{02}}{g}
+        \end{pmatrix}
+        \begin{pmatrix}
+            h_0 \\ u_0
+        \end{pmatrix} \nonumber \\
+        & \qquad -gH
+        \begin{pmatrix}
+            h_N \\ u_N
+        \end{pmatrix}^\top 
+        \begin{pmatrix}
+        \frac{U}{H} +\frac{2\alpha_N \tau_{N1}}{H} & 1 + \frac{\tau_{N1}\beta_N}{H} + \frac{\alpha_N}{g} \\
+        1 + \frac{\tau_{N1}\beta_N}{H} + \frac{\alpha_N}{g} & \frac{U}{g} + \frac{2\beta_N\tau_{N2}}{g}
+        \end{pmatrix}
+        \begin{pmatrix}
+            h_N \\ u_N
+        \end{pmatrix}
+        \label{swe-sat-mat3}
+    \end{align}
+    To make it stable, we need to choose our penalty parameter
+    so that the right hand side of the equation becomes non positive.
+    We could make this easier by choose the parameter so that the matrix involved 
+    becomes diagonal. That is, for left boundary, 
+    $1 - \frac{\tau_{01}\beta_0}{H} - \frac{\tau_{02}\alpha_0}{g} = 0$ and 
+    for the right boundary $1 + \frac{\tau_{N1}\beta_0}{H} + \frac{\tau_{N2}\alpha_0}{g} = 0$. 
+    One particular choice would be: 
+    \begin{align}
+        \frac{\tau_{01}\beta_0}{H} = \frac{\tau_{02}\alpha_0}{g} = \half
+        \quad \text{ and } \quad 
+        \frac{\tau_{N1}\beta_0}{H} = \frac{\tau_{N2}\alpha_0}{g} = -\half
+    \end{align}
+    or equivalently
+    \begin{align}
+        \tau_{01} =  \frac{H}{2\beta_0}, \qquad
+        \tau_{02} =  \frac{g}{2\alpha_0}, \qquad
+        \tau_{N1} = -\frac{H}{2\beta_0}, \qquad
+        \tau_{N1} = -\frac{g}{2\alpha_0}
+    \end{align}
+
+    By those choice, equation (\ref{swe-sat-mat3}) could be rewrite as
+    \begin{align}
+        \frac{d\mathbf{E}}{dt}  &=     gH
+        \begin{pmatrix}
+            h_0 \\ u_0
+        \end{pmatrix}^\top 
+        \begin{pmatrix}
+        \frac{U}{H} - \frac{\alpha_0}{\beta_0}& 0 \\
+        0 & \frac{U}{g} - \frac{\beta_0}{\alpha_0}
+        \end{pmatrix}
+        \begin{pmatrix}
+            h_0 \\ u_0
+        \end{pmatrix} \nonumber \\
+        & \qquad -gH
+        \begin{pmatrix}
+            h_N \\ u_N
+        \end{pmatrix}^\top 
+        \begin{pmatrix}
+        \frac{U}{H} +\frac{\alpha_N}{\beta_N}& 0 \\
+        0 & \frac{U}{g} + \frac{\alpha_N}{\beta_N}
+        \end{pmatrix}
+        \begin{pmatrix}
+            h_N \\ u_N
+        \end{pmatrix}
+    \end{align}
+    As we want to have the energy non increasing, 
+    we want the right hand side non positive. 
+    It is sufficient to have the eigenvalues 
+    $\frac{U}{H} - \frac{\alpha_0}{\beta_0}$ and 
+    $\frac{U}{g} - \frac{\beta_0}{\alpha_0}$ are non positive
+    and the eigenvalues
+    $\frac{U}{H} +\frac{\alpha_N}{\beta_N}$ and 
+    $\frac{U}{g} + \frac{\alpha_N}{\beta_N}$
+    are non negative. Equivalently, the following inequality must be fulfilled.
+
+    \begin{align}
+        \label{boundarycondition_tau0}        
+        \frac{U}{H} \leq \frac{\alpha_0}{\beta_0} \qquad &\text{and} \qquad \frac{U}{g} \leq \frac{\beta_0}{\alpha_0} \\
+        \label{boundarycondition_tauN}
+        \frac{U}{H} +\frac{\alpha_N}{\beta_N} \geq 0 \qquad &\text{and} \qquad \frac{U}{g} + \frac{\alpha_N}{\beta_N} \geq 0
+    \end{align}
+    % prove it case by case
+
+\subsection{Boundary Conditions}
+    The boundary condition that we will try to implementing should fulfill
+    % the conditions (\ref{boundarycondition_gamma0}), (\ref{boundarycondition_gammaN}) 
+    % to satisfy the stability in the semidiscrete level, and also satisfy 
+    (\ref{boundarycondition_tau0}) and (\ref{boundarycondition_tauN}) to satisfy the stability 
+    in the semi discrete level with penalty parameter chosen as well as some condtion 
+    (\ref{boundarycondition_gamma0}), (\ref{boundarycondition_gammaN}), 
+    (\ref{gamma_0_secondcase}), and (\ref{gamma_N_secondcase}) depending on the case. 
+    But we have to back and fort 
+    from using the pair $w_1$ and $w_2$, to using the pair $u$ and $h$. That's why we recall 
+    equation (\ref{eq:w-to-q}) and (\ref{eq:q-to-w}).
+    \begin{align}
+        &w_1 = \frac{1}{c}\left(\lambda_1 -\frac{ U}{g}\right) h + \frac{1}{c} u, \qquad\qquad\qquad\qquad  w_2 = \frac{1}{d}\left(\lambda_2 -\frac{ U}{g}\right) h + \frac{1}{d} u \\
+        %
+        &h = \frac{1}{c}\left(\lambda_1 -\frac{ U}{g}\right) w_1 +  \frac{1}{d}\left(\lambda_2 -\frac{ U}{g}\right) w_2, \quad\qquad  u = \frac{1}{c} w_1 + \frac{1}{d} w_2
+    \end{align}
+
+
+    Before we're going into details. We would like to show that we couldn't set 
+    the left boundary condition with $u=0$ or $h=0$. It's because if we look into 
+    equation (\ref{energyestimates-h-gH-u}), and let one of the $u=0$ or $h=0$ we would end up 
+    with either 
+    \begin{align}
+        % \frac{dE}{dt} 
+        % + gU \left( \half h^2 \big\vert_0^1 \right) = 0  \quad \text{or} \quad 
+        % \frac{dE}{dt} 
+        % + HU \left( \half u^2 \big\vert_0^1 \right) = 0
+        \cdots
+    \end{align}
+    which both of them are not energy stable. 
+
+
+    \subsubsection{First case: $\lambda_1 >0, \lambda_2<0$.}
+        In this case $\lambda_1 >0, \lambda_2<0$ would equivalent to 
+        $U>0$ and $gH > U^2$. This case require one boundary condition in each side. 
+
+        \subsubsection*{Right Boudary}
+        Let our right boundary $h=0$. 
+        Then, to have the stability in the semidiscrete level, we have to prove that this 
+        satisfy (\ref{boundarycondition_gamma0}), (\ref{boundarycondition_gammaN}). 
+        On the left, the condition $h=0$ give us  
+        \begin{align}
+            h &=0 \\
+            \frac{1}{c}\left(\lambda_1 -\frac{ U}{g}\right) w_1 +  \frac{1}{d}\left(\lambda_2 -\frac{ U}{g}\right) w_2 & = 0 \\
+            w_2 - \left(- \frac{\frac{1}{c}\left(\lambda_1 -\frac{ U}{g}\right)}{\frac{1}{d}\left(\lambda_2 -\frac{ U}{g}\right)} \right) w_1 &= 0 
+        \end{align}
+        So, we need our $\gamma_N^2 = \left(- \frac{\frac{1}{c}\left(\lambda_1 -\frac{ U}{g}\right)}{\frac{1}{d}\left(\lambda_2 -\frac{ U}{g}\right)} \right)^2$ 
+        less than $-\frac{\lambda_1}{\lambda_2}$. 
+
+        (Proof)
+
+        Or we could also set the right boundary to be $u=0$. It will lead us to condition
+        \begin{align}
+            u &= 0 \\
+            \frac{1}{c} w_1 + \frac{1}{d} w_2 & =0 \\
+            w_2 - \left(- \frac{d}{c} \right) w_1 &= 0 \label{rightboundary:u}
+        \end{align}
+        and we need to prove that $\gamma_N^2 = \left(-\frac{d}{c}\right)^2 < -\frac{\lambda_1}{\lambda_2}$.
+
+        (Proof)
+
+        \subsubsection*{Left Boundary}
+    In the left boundary, we need the linear combination of $u$ and $h$. 
+    There's two sub-cases that interesting to be implemented. The first one 
+    is when $\sqrt[]{\frac gH} h + u =0$ and the second one is $Hu + Uh = 0$ which is 
+    the linearized version of $q = 0$. Remember that $q = hu$. In linearized version, $q = (H + h)(U+u) = HU + Hu + Uh + uh$. 
+        Since we ignore the higher order terms, $uh$, and also $HU$ is only constant, we could 
+        see that $q=0$ could be interpreted as $Hu + Uh = 0$.
+
+    In the first sub-case, $\sqrt[]{\frac gH} h + u =0$, we could interpreted this as 
+    \begin{align}
+        \sqrt[]{\frac gH} h + u &=0 \\
+        \sqrt[]{\frac gH}\left(\frac{1}{c}\left(\lambda_1 -\frac{ U}{g}\right) w_1 +  \frac{1}{d}\left(\lambda_2 -\frac{ U}{g}\right) w_2\right)
+         + \left(\frac{1}{c} w_1 + \frac{1}{d} w_2 \right)&=0 \\
+        \frac{1}{c}\left( \sqrt[]{\frac gH}  \left(\lambda_1 -\frac{ U}{g}\right) \right) w_1 
+        + \frac{1}{d}\left( \sqrt[]{\frac gH}  \left(\lambda_2 -\frac{ U}{g}\right) \right) w_2 
+        &= 0 \\
+        w_1 - \left(-  \frac{
+            \frac{1}{d}\left( \sqrt[]{\frac gH}  \left(\lambda_2 -\frac{ U}{g}\right) \right)
+        }
+        {
+            \frac{1}{c}\left( \sqrt[]{\frac gH}  \left(\lambda_1 -\frac{ U}{g}\right) \right)
+        }
+        \right) w_2 &=0
+    \end{align}
+    Now, we need to prove that $$\gamma_0^2 = \left( - \frac{
+        \frac{1}{d}\left( \sqrt[]{\frac gH} \left(\lambda_2 -\frac{ U}{g}\right) \right)
+    }
+    {
+        \frac{1}{c}\left( \sqrt[]{\frac gH} \left(\lambda_1 -\frac{ U}{g}\right) \right)
+    }
+    \right)^2 < - \frac{\lambda_2}{\lambda_1}$$
+    
+    The other sub-case is $Hu + Uh = 0$. We could change this into 
+
+    \begin{align}
+        Hu + Uh &= 0\\
+        H\left(
+            \frac{1}{c}\left(\lambda_1 -\frac{ U}{g}\right) w_1 +  \frac{1}{d}\left(\lambda_2 -\frac{ U}{g}\right) w_2
+            \right)
+         + U\left(\frac{1}{c} w_1 + \frac{1}{d} w_2 \right)&= 0\\
+        \left(\frac{H}{c}\left(\lambda_1 -\frac{ U}{g}\right) + \frac{U}{c}\right) w_1 
+         + \left(\frac{H}{d}\left(\lambda_2 -\frac{ U}{g}\right) + \frac{U}{d}\right) w_2 &=0 \\
+        w_1 - \left(- \frac{
+            \frac{H}{c}\left(\lambda_1 -\frac{ U}{g}\right) + \frac{U}{c}
+        }{
+            \frac{H}{d}\left(\lambda_2 -\frac{ U}{g}\right) + \frac{U}{d}
+        }\right) &= 0 
+    \end{align}
+    and as before, we need to prove that 
+    $$
+        \gamma_0^2 = \left(- \frac{
+            \frac{H}{c}\left(\lambda_1 -\frac{ U}{g}\right) + \frac{U}{c}
+        }{
+            \frac{H}{d}\left(\lambda_2 -\frac{ U}{g}\right) + \frac{U}{d}
+        }\right)^2 < - \frac{\lambda_2}{\lambda_1}.
+    $$
+
+
+    $$ \cdots $$ 
+
+    In our implementation of SAT, we need to satisfy condition
+    (\ref{boundarycondition_tau0}) and (\ref{boundarycondition_tauN}). 
+    On the left boundary, it's pretty straight forward.
+    In the first sub-case, $\sqrt[]{\frac gH} h + u =0$ 
+    give us $\alpha_0 = \sqrt[]{\frac{g}{H}}$ and $\beta_0 = 1$. 
+    We only need to show that 
+    \begin{align}
+        \frac{U}{H} &\leq \frac{\alpha_0}{\beta_0} 
+        \qquad \text{and}  \qquad 
+        \frac{U}{g} \leq \frac{\beta_0}{\alpha_0} \\
+        \frac{U}{H} &\leq \sqrt[]{\frac{g}{H}}
+        \qquad \text{and}  \qquad 
+        \frac{U}{g} \leq \frac{1}{\sqrt[]{\frac{g}{H}}}
+    \end{align}
+    and both of the conditions equivalent in our first case $U^2 - gH < 0$. 
+
+    The second sub-case, with $Hu + Uh = 0$, we have $\alpha_0 = U$ and $\beta_0 = H$. 
+    And we need to prove that 
+    \begin{align}
+        \frac{U}{H} &\leq \frac{\alpha_0}{\beta_0} 
+        \qquad \text{and}  \qquad 
+        \frac{U}{g} \leq \frac{\beta_0}{\alpha_0} \\
+        %
+        \frac{U}{H} &\leq \frac{U}{H}
+        \qquad \text{and}  \qquad 
+        \frac{U}{g} \leq \frac{H}{U}
+    \end{align}
+    but thats equivalent to our condition $U^2 < gH$. 
+    $$ \cdots $$ 
+
+
+
+    \subsubsection{Second case: $\lambda_1 >0, \lambda_2>0$.}
+        In this case, we have $U>0$ and $gH < U^2$. The two boundary conditions needed in this case 
+        are $w_1 = 0$ and $w_2 = 0$. We don't need to choose $\gamma_0$ nor $\gamma_N$ in this case. 
+        The only conditions we need to met are 
+        (\ref{boundarycondition_tau0}) and (\ref{boundarycondition_tauN}). The boundary condition 
+        $w_1 = 0$ would equivalent to 
+        \begin{align}
+            w_1 = \frac{1}{c}\left(\lambda_1 -\frac{ U}{g}\right) h_0 + \frac{1}{c} u_0 = \alpha_0 h_0 + \beta_0 u_0
+        \end{align}
+        so that 
+        \begin{align}
+            \frac{\alpha_0}{\beta_0} 
+            = \frac{\frac{1}{c}\left(\lambda_1 -\frac{ U}{g}\right)}{\frac{1}{c}} 
+            = \left(\lambda_1 -\frac{ U}{g}\right).
+        \end{align}
+        Hence, we need to prove that 
+        \begin{align}
+            \left(\lambda_1 -\frac{ U}{g}\right) \geq \frac{U}{H} 
+            &\qquad \text{and} \qquad
+            \frac{1}{\left(\lambda_1 -\frac{ U}{g}\right)} \geq \frac{U}{g} \\
+            \lambda_1 \geq \frac{U^2}{gH} 
+            &\qquad \text{and} \qquad
+            \left(\lambda_1 -\frac{ U}{g}\right) \leq \frac{g}{U} 
+        \end{align}
+        We could see that this is true by looking this for any value of $U$ and $H$. 
+
+        \[ DIAGRAM \]
+        The second condition could be analyse with the same argument and get the following inequalities.
+        \begin{align}
+            \lambda_2 \geq \frac{U^2}{gH} 
+            &\qquad \text{and} \qquad
+            \left(\lambda_2 -\frac{ U}{g}\right) \leq \frac{g}{U} 
+        \end{align}
+
+        \[ DIAGRAM \]
+
+    \subsubsection{Third case: $\lambda_1 <0, \lambda_2 >0$}
+    In this case, we have $U<0$ and $gH > U^2$, one boundary condition on the left 
+    and one boundary condition on the right. The condition (\ref{boundarycondition_tau0}) and (\ref{boundarycondition_tauN})
+    do not depend on the cases of the eigenvalues, then we could reuse the result 
+    from previous cases. So in this case we only need to check our choice 
+    of $\gamma_0$ and $\gamma_N$. 
+    \subsubsection*{Left Boundary}
+    On the left boundary, we could only set the linear combination of $u$ and $h$. We would 
+    look into two cases, $Uh + Hu =0$ and $\sqrt[]{\frac{g}{H}h}+u$. 
+
+    \subsubsection*{Right Boundary}
+
+    %% look again in the continuous level 
+    %% do only one case for the linear combination of u and h
+
+    
+    \subsubsection{Fourth case: $\lambda_1 <0, \lambda_2 <0$}
+    In this case, we have $U<0$ and $gH < U^2$, that is two boundary condition on the right. 
+    Now we have plenty of choices: $u=0, h=0,$ and linear combination of $u$ and $h$. 
+    Since the condition (\ref{boundarycondition_tau0}) and (\ref{boundarycondition_tauN})
+    do not depend on the cases of the eigenvalues, then we could reuse the result 
+    from previous cases. 
+    Also because this case has $w_1 = 0$ and $w_2 =0$ we don't need to bother with 
+    $\gamma_0$ and $\gamma_N$.
+
+
+\section{Conclusion}
+
+
+
+\end{document}
+
+
+
+% Physical interpretation 
+% as practical application
+
+% numerical demosntration in the presentation
+% with the transmisive boundary condtition 
+% 
+
+
+
+
+%% boundary condition is stable
+%% try do things carefully
