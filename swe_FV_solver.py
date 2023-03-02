@@ -35,35 +35,39 @@ def initial_profile_1d(x):
     u_init = x_control*0
     return h_init, u_init
 
-h_init, u_init = initial_profile_1d(x_control)
-h = (h_init[1:]+h_init[:-1])/2
-u = (u_init[1:]+u_init[:-1])/2
-initial_profile = (h,u)
-
-
+initial_profile = initial_profile_1d(x_control)
 
 # Define boundary conditions
 
-
-
-
 # Define numerical flux function 
-
-def flux(q1, q2):
-    return np.array([q2, q2**2/q1 + 9.81*q1**2/2])
+def flux(q1,q2):
+    flux_1 = q2
+    flux_2 = q2**2/q1 + 1/2 * g*q1**2
+    return flux_1, flux_2
 
 def RHS(t,q1,q2,dx):
-    rhs = (flux(q1,q2) - flux(q1,q2))/dx
-    return rhs
+    flux_1, flux_2 = flux(q1,q2)
+    RHS1 = (1/dx)*(flux_1[1:] - flux_1[:-1])
+    RHS2 = (1/dx)*(flux_2[1:] - flux_2[:-1])
+    return RHS1, RHS2
 
-def rk4(t,dt,q1,q2,dx):
-    f1_q1, f1_q2 = RHS(t     , q1          , q2           , dx)
-    f2_q1, f2_q2 = RHS(t+dt/2, q1+f1_q1*dt/2, q2 +f1_q2*dt/2, dx)
-    f3_q1, f3_q2 = RHS(t+dt/2, q1+f2_q1*dt/2, q2 +f1_q2*dt/2, dx)
-    f4_q1, f4_q2 = RHS(t+dt  , q1+f3_q1*dt  , q2 +f1_q2*dt  , dx)
-    q1 += (dt/6)* (f1_q1 + 2*f2_q1 + 2*f3_q1 + f4_q1)
-    q2  += (dt/6)* (f1_q2 + 2*f2_q2 + 2*f3_q2 + f4_q2)
-    return q1,q2  
+# Define Runge-Kutta methods
+# def rk4(t,dt,q1,q2,dx):
+#     f1_q1, f1_q2 = RHS(t     , q1           , q2            , dx)
+#     f2_q1, f2_q2 = RHS(t+dt/2, q1+f1_q1*dt/2, q2 +f1_q2*dt/2, dx)
+#     f3_q1, f3_q2 = RHS(t+dt/2, q1+f2_q1*dt/2, q2 +f1_q2*dt/2, dx)
+#     f4_q1, f4_q2 = RHS(t+dt  , q1+f3_q1*dt  , q2 +f1_q2*dt  , dx)
+#     q1 += (dt/6)* (f1_q1 + 2*f2_q1 + 2*f3_q1 + f4_q1)
+#     q2  += (dt/6)* (f1_q2 + 2*f2_q2 + 2*f3_q2 + f4_q2)
+#     return q1,q2  
+# def rk4(t,dt,q1,q2,h,u,dx):
+#     f1_q1, f1_q2 = RHS(t     , h            , u             , dx)
+#     f2_q1, f2_q2 = RHS(t+dt/2, q1+f1_q1*dt/2, q2 +f1_q2*dt/2, dx)
+#     f3_q1, f3_q2 = RHS(t+dt/2, q1+f2_q1*dt/2, q2 +f1_q2*dt/2, dx)
+#     f4_q1, f4_q2 = RHS(t+dt  , q1+f3_q1*dt  , q2 +f1_q2*dt  , dx)
+#     q1 += (dt/6)* (f1_q1 + 2*f2_q1 + 2*f3_q1 + f4_q1)
+#     q2 += (dt/6)* (f1_q2 + 2*f2_q2 + 2*f3_q2 + f4_q2)
+#     return q1,q2  
 
 def integrate(dx, initial_profile,simulation_time, boundary=False, source=False):
     '''
@@ -71,16 +75,31 @@ def integrate(dx, initial_profile,simulation_time, boundary=False, source=False)
     and HLL Solver 
     '''
     finaltime, dt  = simulation_time
-    h, u   = initial_profile
+    g      = 9.81                                   # the gravity constant 
+    t = dt                                          # initialise first time step
+    h_num, u_num = initial_profile                  # initialise numerical solution
+    flux_1 = h_num*u_num                            # initial flux
+    flux_2 = h_num*u_num**2 + 1/2 * g*h_num**2      #
+    q1 = (h[1:]+h[:-1])/2                           # q_bar = [h_bar, u_bar]
+    q2 = (h[1:]+h[:-1])/2 * (u[1:]+u[:-1])/2        #
 
-    t = dt              # initialise first time step
-    q1 = h
-    q2 = h*u
-    while t < finaltime:
-        h_num, u_num = rk4(t,dt,q1,q2,dx)
+
+    while t < finaltime:                            # main loop
+        # Integrating with Runge-Kutta 
+
+        f1_q1, f1_q2 = RHS(t     , h            , u             , dx)
+        f2_q1, f2_q2 = RHS(t+dt/2, q1+f1_q1*dt/2, q2 +f1_q2*dt/2, dx)
+        f3_q1, f3_q2 = RHS(t+dt/2, q1+f2_q1*dt/2, q2 +f1_q2*dt/2, dx)
+        f4_q1, f4_q2 = RHS(t+dt  , q1+f3_q1*dt  , q2 +f1_q2*dt  , dx)
+        q1 += (dt/6)* (f1_q1 + 2*f2_q1 + 2*f3_q1 + f4_q1)
+        q2 += (dt/6)* (f1_q2 + 2*f2_q2 + 2*f3_q2 + f4_q2)
+
+
+        q1, q2 = rk4(t,dt,q1,q2,h_num,u_num,dx)
+        h_num = q1
+        u_num = q2/q1
         t += dt
-    h_num = q1
-    u_num = q2/q1
+
     return (h_num,u_num)
 
 
