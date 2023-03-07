@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 # Define simulation parameter 
 x0 = 0                          # Left boundary
 xn = 1                          # Right boundary
-N  = 101                          # Number of nodes - 1
+N  = 501                          # Number of nodes - 1
 x = np.linspace(x0,xn,N)        # intervals
 dx = x[1] - x[0]                # grid spacing
 
@@ -23,8 +23,8 @@ domain_1d = (x, dx, N)          #
 g = 9.81                                # Gravity constant
 
 # Define simulation time parameter
-cfl = 0.5                              # CFL number
-finaltime  = 10*np.pi                        # simulation time in seconds
+cfl = 0.25                              # CFL number
+finaltime  = 15.0                        # simulation time in seconds
 dt = dt = cfl*dx/(np.sqrt(g))           # time step in seconds
 simulation_time = (finaltime,dt)        #
 
@@ -34,7 +34,7 @@ def initial_profile_1d(x):
     '''
     Control cell for Finite Volume is taking into account.
     '''
-    h_init = np.exp(-(x_control-0.5)**2/0.01)
+    h_init = np.exp(-(x_control-0.5)**2/0.005)
     u_init = x_control*0
     return h_init, u_init
 
@@ -85,38 +85,44 @@ def integrate(dx, initial_profile,simulation_time, boundary=False, source=False,
     u_stack = []
 
     while t < finaltime:                            # main loop
+    # for i in range(2000):
         # Integrating with Runge-Kutta 
-        f1 = RHS(t     , q1           , q2             , dx)
+        f1 = RHS(t     , q1           , q2            , dx)
         f2 = RHS(t+dt/2, q1+f1[0]*dt/2, q2 +f1[1]*dt/2, dx)
         f3 = RHS(t+dt/2, q1+f2[0]*dt/2, q2 +f2[1]*dt/2, dx)
         f4 = RHS(t+dt  , q1+f3[0]*dt  , q2 +f3[1]*dt  , dx)
         q += (dt/6)* (f1 + 2*f2 + 2*f3 + f4)
         t += dt
-
         # revert the variable and stack the solution
-        h_num = q[0]
-        u_num = np.where(h_num > 1e-6, np.divide(q[0],q[1]), 0*q[0])
-        if stacked == True:
-            h_stack.append(h_num)
-            u_stack.append(u_num)
+        q1 = q[0]
+        q2 = q[1]
 
+        if stacked == True:
+            h_stack.append(q1)
+            u_num = np.where(h_num > 1e-10, np.divide(q[1],q[0]), 0*q[0])
+            u_stack.append(u_num)
 
     if stacked == True:
         return h_stack, u_stack
     else:
+        h_num = q[0]
+        u_num = np.where(h_num > 1e-10, np.divide(q[1],q[0]), 0*q[0])
         return h_num, u_num
 
-
+# ---------------------------------------------#
 # Running the program with the setup
+# and make a plot
 
-h_num, u_num = integrate(domain_1d, initial_profile,simulation_time, boundary=False, source=False, stacked = True)
-plt.plot(x_control,h_num[-1])
-plt.plot(x_control,np.exp(-(x_control-0.5)**2/0.01))
-# plt.plot(x_control,h_num[-1] - np.exp(-(x_control-0.5)**2/0.01))
+h_num, u_num = integrate(domain_1d, initial_profile,simulation_time, boundary=False, source=False, stacked = False)
+plt.plot(x_control,h_num)
+plt.ylim(-0.1,1.0)
+# plt.plot(x_control,np.exp(-(x_control-0.5)**2/0.01))
+# # plt.plot(x_control,h_num[-1] - np.exp(-(x_control-0.5)**2/0.01))
 plt.show()
 
-# # ---------------------------------------------#
-# # Make an animation 
+# ---------------------------------------------#
+# Running the program with the setup
+# and make an animation 
 # from celluloid import Camera
 # from IPython.display import HTML
 # from tqdm import tqdm as td 
@@ -125,7 +131,11 @@ plt.show()
 # camera = Camera(fig)
 # counter = np.int(finaltime/dt -1)
 
+# h_num, u_num = integrate(domain_1d, initial_profile,simulation_time, boundary=False, source=False, stacked = True)
+
+
 # for i in td(range(counter)):
+#     plt.ylim(-.1,1)
 #     axs.set_title('Height')
 #     axs.plot(x_control,h_num[i],label="numerical",color="orange")
 #     if mms != 0:
@@ -144,5 +154,6 @@ plt.show()
 # # if saveanim != 0:
 # #     animation.save('%s' % saveanim)
 # plt.show()
+# ---------------------------------------------#
 
 # %%
