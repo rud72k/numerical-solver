@@ -8,6 +8,7 @@ xn = 1                          # Right boundary
 N  = 501                          # Number of nodes - 1
 x = np.linspace(x0,xn,N)        # intervals
 dx = x[1] - x[0]                # grid spacing
+dxx = 0.002
 
 # Define cell control midpoint and cell width
 x_half = (x[1:] + x[:-1])/2             # define x_(1/2) etc
@@ -22,23 +23,27 @@ domain_1d = (x, dx, N)          #
 # Define physical parameters
 g = 9.81                                # Gravity constant
 
+
 # Define simulation time parameter
-cfl = 0.25                              # CFL number
-finaltime  = 15.0                        # simulation time in seconds
+cfl = 0.15                              # CFL number
+finaltime  = 0.1                        # simulation time in seconds
 dt = dt = cfl*dx/(np.sqrt(g))           # time step in seconds
 simulation_time = (finaltime,dt)        #
 
 
 # Define initial conditions
-def initial_profile_1d(x):
+H = 0.1
+U = 0
+
+def initial_profile_1d(x,H):
     '''
     Control cell for Finite Volume is taking into account.
     '''
-    h_init = np.exp(-(x_control-0.5)**2/0.005)
-    u_init = x_control*0
+    h_init = np.exp(-(x-0.5)**2/0.001) + H
+    u_init = x*0
     return h_init, u_init
 
-initial_profile = initial_profile_1d(x_control)
+initial_profile = initial_profile_1d(x,H)
 
 # Forced solution 
 mms = 0
@@ -46,24 +51,97 @@ mms = 0
 
 # Define boundary conditions
 
-BT_left = np.zeros((2,1))
-BT_right = np.zeros((2,1))
+# BT_left = np.ones((2,1))*H
+# BT_right = np.ones((2,1))*H
+
+
+BT_left = (np.array([[H],[H*U]]))
+BT_right = (np.array([[H],[H*U]]))
+
+from boundary import *
+
+H_bar, U_bar, g = 0.1, 0, 9.81
+
+
 
 # Define numerical flux function 
 
 def flux(q1,q2):
-    flux_1 = q2
-    flux_2 = q2**2/q1 + 1/2 * g*q1**2
-    flux = np.block([[flux_1], [flux_2]])
+    flux = np.zeros((2,1))
+    flux[0] = q2
+    flux[1] = q2**2/q1 + 1/2 * g*q1**2
+    # flux = np.block([[flux_1], [flux_2]])
     return flux
 
+
+def numericalflux(qm,qp):
+    g = 9.81
+    hm = qm[0]
+    um = qm[1]/qm[0]
+    lambda_m = np.abs(um) + np.sqrt(g*hm)
+    hp = qp[0]
+    up = qp[1]/qp[0]
+    lambda_p = np.abs(up) + np.sqrt(g*hp)
+
+    alpha = 2*(lambda_m*lambda_p)/(lambda_m + lambda_p)     # Rusanov flux (using harmonic mean)
+    # alpha = 0
+    F_flux = np.zeros((2,1))
+    F_flux[:] = (flux(qm[0],qm[1]) + flux(qp[0],qp[1]))/2 
+    Qp = np.zeros((2,1))
+    Qm = np.zeros((2,1))
+    Qp[0,0] = qp[0]
+    Qp[1,0] = qp[1]
+    Qm[0,0] = qm[0]
+    Qm[1,0] = qm[1]
+    F_flux = F_flux -  alpha/2*(Qp - Qm)
+    
+    return F_flux
+
+    
 # Define the right hand side of the differential equations
-def RHS(t,q1,q2,dx):
-    flux_left = flux(q1[:-1],q2[:-1])
-    flux_left = np.block([[BT_left,flux_left]])
-    flux_right = flux(q1[1:],q2[1:])
-    flux_right = np.block([[flux_right,BT_right]]) 
-    RHS = - flux_left + flux_right
+def RHS(t,q1,q2,dx,N):
+    F = np.zeros((2,N))
+    RHS = np.zeros((2,N))
+    # flux_left = flux(q1[:-1],q2[:-1])/dx
+    # flux_right = flux(q1[1:],q2[1:])/dx
+    F_0 = flux(q1[0],q2[0])                 # left side
+    F_N = flux(q1[-1],q2[-1])               # right side
+
+    qm = np.array([q1[0],q2[0]])
+    qp = np.array([q1[1],q2[1]])
+    F_half_0 = numericalflux(qm,qp)
+
+    # print(F_half_0)
+    # print(F_0)
+    Flux_difference_0 = - (F_half_0 - F_0)*2/dxx 
+    
+    qm = np.array([q1[-2],q2[-2]])
+    qp = np.array([q1[-1],q2[-1]])
+    F_half_N = numericalflux(qm,qp)
+
+    Flux_difference_N = - (F_half_N - F_N)*2/dxx 
+
+    for k in range(1,N):
+        qm = np.array([q1[k-1],q2[k-1]])
+        qp = np.array([q1[k],q2[k]])
+        temp = numericalflux(qm,qp)
+        F[0,k-1] = temp[0,0]
+        F[1,k-1] = temp[1,0]
+    
+    for k in range(1,N-1):
+        another_temp = - (F[:,k] - F[:,k-1])/dxx
+        RHS[0,k] = another_temp[0]
+        RHS[1,k] = another_temp[1]
+        # RHS[:,k] = - (F[:,k] - F[:,k-1])/dx
+    
+    # RHS[:,0] = Flux_difference_0
+    # RHS[:,-1] = Flux_difference_N
+
+    RHS[0,0] = Flux_difference_0[0]
+    RHS[1,0] = Flux_difference_0[1]
+    RHS[0,-1] = Flux_difference_N[0]
+    RHS[1,-1] = Flux_difference_N[1]
+
     return RHS
 
 def integrate(dx, initial_profile,simulation_time, boundary=False, source=False, stacked =True):
@@ -84,13 +162,13 @@ def integrate(dx, initial_profile,simulation_time, boundary=False, source=False,
     h_stack = []
     u_stack = []
 
-    while t < finaltime:                            # main loop
-    # for i in range(2000):
+    # while t < finaltime:                            # main loop
+    for i in range(500):
         # Integrating with Runge-Kutta 
-        f1 = RHS(t     , q1           , q2            , dx)
-        f2 = RHS(t+dt/2, q1+f1[0]*dt/2, q2 +f1[1]*dt/2, dx)
-        f3 = RHS(t+dt/2, q1+f2[0]*dt/2, q2 +f2[1]*dt/2, dx)
-        f4 = RHS(t+dt  , q1+f3[0]*dt  , q2 +f3[1]*dt  , dx)
+        f1 = RHS(t     , q1           , q2            , dx,N)
+        f2 = RHS(t+dt/2, q1+f1[0]*dt/2, q2 +f1[1]*dt/2, dx,N)
+        f3 = RHS(t+dt/2, q1+f2[0]*dt/2, q2 +f2[1]*dt/2, dx,N)
+        f4 = RHS(t+dt  , q1+f3[0]*dt  , q2 +f3[1]*dt  , dx,N)
         q += (dt/6)* (f1 + 2*f2 + 2*f3 + f4)
         t += dt
         # revert the variable and stack the solution
@@ -114,7 +192,7 @@ def integrate(dx, initial_profile,simulation_time, boundary=False, source=False,
 # and make a plot
 
 h_num, u_num = integrate(domain_1d, initial_profile,simulation_time, boundary=False, source=False, stacked = False)
-plt.plot(x_control,h_num)
+plt.plot(x,h_num)
 plt.ylim(-0.1,1.0)
 # plt.plot(x_control,np.exp(-(x_control-0.5)**2/0.01))
 # # plt.plot(x_control,h_num[-1] - np.exp(-(x_control-0.5)**2/0.01))
