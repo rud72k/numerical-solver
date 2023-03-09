@@ -26,7 +26,7 @@ g = 9.81                                # Gravity constant
 
 # Define simulation time parameter
 cfl = 0.15                              # CFL number
-finaltime  = 0.1                        # simulation time in seconds
+finaltime  = 0.2                       # simulation time in seconds
 dt = dt = cfl*dx/(np.sqrt(g))           # time step in seconds
 simulation_time = (finaltime,dt)        #
 
@@ -60,7 +60,7 @@ BT_right = (np.array([[H],[H*U]]))
 
 from boundary import *
 
-H_bar, U_bar, g = 0.1, 0, 9.81
+# H_bar, U_bar, g = 0.1, 0, 9.81
 
 
 
@@ -162,8 +162,8 @@ def integrate(dx, initial_profile,simulation_time, boundary=False, source=False,
     h_stack = []
     u_stack = []
 
-    # while t < finaltime:                            # main loop
-    for i in range(500):
+    while t < finaltime:                            # main loop
+    # for i in range(500):
         # Integrating with Runge-Kutta 
         f1 = RHS(t     , q1           , q2            , dx,N)
         f2 = RHS(t+dt/2, q1+f1[0]*dt/2, q2 +f1[1]*dt/2, dx,N)
@@ -172,13 +172,22 @@ def integrate(dx, initial_profile,simulation_time, boundary=False, source=False,
         q += (dt/6)* (f1 + 2*f2 + 2*f3 + f4)
         t += dt
         # revert the variable and stack the solution
+        q[0,0] = BT_left[0]
+        # q[1,0] = BT_left[1]
+        q[0,-1] = BT_right[0] 
+        # q[1,-1] = BT_right[1]
+
         q1 = q[0]
         q2 = q[1]
+
 
         if stacked == True:
             h_stack.append(q1)
             u_num = np.where(h_num > 1e-10, np.divide(q[1],q[0]), 0*q[0])
             u_stack.append(u_num)
+        
+
+
 
     if stacked == True:
         return h_stack, u_stack
