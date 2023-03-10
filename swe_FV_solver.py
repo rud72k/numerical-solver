@@ -1,6 +1,7 @@
 #%%
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 
 # Define simulation parameter 
 x0 = 0                          # Left boundary
@@ -26,7 +27,7 @@ g = 9.81                                # Gravity constant
 
 # Define simulation time parameter
 cfl = 0.15                              # CFL number
-finaltime  = 0.2                       # simulation time in seconds
+finaltime  = 0.1                       # simulation time in seconds
 dt = dt = cfl*dx/(np.sqrt(g))           # time step in seconds
 simulation_time = (finaltime,dt)        #
 
@@ -149,6 +150,7 @@ def integrate(dx, initial_profile,simulation_time, boundary=False, source=False,
     Solving 1-dimensional shallow water wave equation using Finite Volume
     and HLL Solver.
     '''
+    start = time.time()
     finaltime, dt  = simulation_time
     g      = 9.81                                   # the gravity constant 
     t = dt                                          # initialise first time step
@@ -187,13 +189,17 @@ def integrate(dx, initial_profile,simulation_time, boundary=False, source=False,
             u_stack.append(u_num)
         
 
-
-
     if stacked == True:
+        end = time.time()
+        time_elapsed = end-start
+        print('integrate with q',time_elapsed)
         return h_stack, u_stack
     else:
         h_num = q[0]
         u_num = np.where(h_num > 1e-10, np.divide(q[1],q[0]), 0*q[0])
+        end = time.time()
+        time_elapsed = end-start
+        print('integrate with q',time_elapsed)
         return h_num, u_num
 
 # ---------------------------------------------#
@@ -201,7 +207,8 @@ def integrate(dx, initial_profile,simulation_time, boundary=False, source=False,
 # and make a plot
 
 h_num, u_num = integrate(domain_1d, initial_profile,simulation_time, boundary=False, source=False, stacked = False)
-plt.plot(x,h_num)
+plt.plot(x,h_num,label='height')
+plt.legend()
 plt.ylim(-0.1,1.0)
 # plt.plot(x_control,np.exp(-(x_control-0.5)**2/0.01))
 # # plt.plot(x_control,h_num[-1] - np.exp(-(x_control-0.5)**2/0.01))
@@ -242,5 +249,78 @@ plt.show()
 # #     animation.save('%s' % saveanim)
 # plt.show()
 # ---------------------------------------------#
+
+# %%
+
+# Define the right hand side of the differential equations
+    
+def RHS2(t,h,u,dx,N):
+    q1 = h
+    q2 = h*u
+    RHS_ = RHS(t,q1,q2,dx,N)
+    RHS_h = RHS_[0]
+    RHS_u = np.where(h>1e-6,(RHS_[1] - RHS_[0]*q2/h)/h, RHS_[1]*0)
+    return RHS_h, RHS_u
+
+def integrate2(dx, initial_profile,simulation_time, boundary=False, source=False, stacked =True):
+    '''
+    Solving 1-dimensional shallow water wave equation using Finite Volume
+    and HLL Solver.
+    '''
+    start = time.time()
+    finaltime, dt  = simulation_time
+    g      = 9.81                                   # the gravity constant 
+    t = dt                                          # initialise first time step
+    h_num, u_num = initial_profile                  # initialise numerical solution
+    
+
+    h_stack = []
+    u_stack = []
+
+    while t < finaltime:                            # main loop
+    # for i in range(500):
+        # Integrating with Runge-Kutta 
+        f1_h, f1_u = RHS2(t     , h_num           , u_num            , dx,N)
+        f2_h, f2_u = RHS2(t+dt/2, h_num+f1_h*dt/2, u_num +f1_u*dt/2, dx,N)
+        f3_h, f3_u = RHS2(t+dt/2, h_num+f2_h*dt/2, u_num +f2_u*dt/2, dx,N)
+        f4_h, f4_u = RHS2(t+dt  , h_num+f3_h*dt  , u_num +f3_u*dt  , dx,N)
+        h_num += (dt/6)* (f1_h + 2*f2_h + 2*f3_h + f4_h)
+        u_num += (dt/6)* (f1_u + 2*f2_u + 2*f3_u + f4_u)
+        t += dt
+            # q[0,0] = BT_left[0]
+            # # q[1,0] = BT_left[1]
+            # q[0,-1] = BT_right[0] 
+            # # q[1,-1] = BT_right[1]
+        h_num[0] = BT_left[0]
+        h_num[-1] = BT_right[0] 
+        u_num[0] = BT_left[1]
+        u_num[-1] = BT_right[1]
+
+        if stacked == True:
+            h_stack.append(h_num)
+            u_stack.append(u_num)        
+
+    if stacked == True:
+        end = time.time()
+        time_elapsed = end-start
+        print('integrate with h and u',time_elapsed)
+        return h_stack, u_stack
+    else:
+        end = time.time()
+        time_elapsed = end-start
+        print('integrate with h and u',time_elapsed)        
+        return h_num, u_num
+
+
+BT_left = (np.array([[H],[U]]))
+BT_right = (np.array([[H],[U]]))
+
+h_num2, u_num2 = integrate2(domain_1d, initial_profile,simulation_time, boundary=False, source=False, stacked = False)
+plt.plot(x,h_num2,label='height')
+plt.ylim(-0.1,1.0)
+plt.legend()
+# plt.plot(x_control,np.exp(-(x_control-0.5)**2/0.01))
+# # plt.plot(x_control,h_num[-1] - np.exp(-(x_control-0.5)**2/0.01))
+plt.show()
 
 # %%
